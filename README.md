@@ -56,13 +56,13 @@ In bilingual assessments, minor translation omissions create material discrepanc
 ## Workflow
 
 ```
-[1. Enter Pair] ──> [2. Run Checks] ──> [3. Inspect Evidence] ──> [4. Record & Export]
+[1. Enter or Import Pair] ──> [2. Run Checks] ──> [3. Inspect Evidence & Filter] ──> [4. Record & Export]
 ```
 
-1. **Enter Paired Questions**: Input English and Tamil question stems alongside labelled options (`A`–`D` or `E`).
+1. **Enter or Import Paired Questions**: Input English and Tamil question stems alongside options (`A`–`D` or `E`), or click **Import CSV** to upload up to 10 questions at once with live validation preview.
 2. **Run Checks**: Execute instant structural rules or run semantic AI comparison with explicit reviewer consent.
-3. **Inspect Evidence**: Review flagged discrepancies alongside exact quoted substrings highlighted in the editor.
-4. **Record & Export**: Mark each finding as **Keep**, **Fix**, or **Escalate**, then copy a structured Markdown summary to the clipboard.
+3. **Inspect Evidence & Filter**: Review flagged discrepancies alongside exact quoted substrings. Use the batch summary bar to filter questions by status (`Changed`, `Review`, `Clean`, `Draft`).
+4. **Record & Export**: Mark findings as **Keep**, **Fix**, or **Escalate**, then copy a structured Markdown summary or click **Download CSV report** for an RFC 4180 spreadsheet report.
 
 ### Operating Modes & Human Triage
 
@@ -70,6 +70,8 @@ In bilingual assessments, minor translation omissions create material discrepanc
 |---|---|---|
 | **Rules Mode** | Instant local deterministic checks (option counts, label alignment, Tamil numerals `௦–௯`, numbers, and units). | Always returns `needs_review`. Never claims semantic equivalence without AI verification. |
 | **Semantic AI Mode** | Structured cloud comparison via Google Gemini (`gemini-2.5-flash`) requiring reviewer consent. | Strictly validates that every quoted excerpt exists verbatim in the source text before display. |
+| **Batch CSV Import** | RFC 4180 CSV parser supporting UTF-8 Tamil, BOM, multiline cells, and option parity validation. | Atomic import: all errors are surfaced in a preview modal before applying; never silently drops invalid rows. |
+| **Batch CSV Export** | Complete findings report with UTF-8 BOM and spreadsheet formula injection protection. | One row per finding, plus summary rows for clean questions so no item disappears. Escapes `=`, `+`, `-`, `@`. |
 | **Human Triage** | Reviewer assigns **Keep** (intended phrasing), **Fix** (editorial correction), or **Escalate** (panel review). | Automated checks surface candidate issues; the human reviewer decides editorial action. |
 
 ---
@@ -217,14 +219,14 @@ MozhiMatch maintains clear separation between test suites, browser testing, and 
 
 | Check | Result | Location / Command | Scope & Notes |
 |---|---|---|---|
-| **Unit & Contract Tests** | **44 / 44 Passing** (9 suites) | `npm run test` | Validates Zod schemas, structural rules, evidence quotes, exports, access guards, and state transitions. |
+| **Unit & Contract Tests** | **57 / 57 Passing** (11 suites) | `npm run test` | Validates CSV import (BOM, encoding, multiline, option pairing, atomicity), CSV export (formula injection sanitization, summary rows), Zod contracts, structural rules, evidence quotes, exports, access guards, and state transitions. |
 | **Static Quality Gates** | **0 Errors, Clean Build** | `npm run typecheck`<br>`npm run lint`<br>`npm run build` | TypeScript 5.9 strict typecheck, ESLint 9, and Next.js 16 production compilation. |
-| **Local Browser Tests** | **Verified (Desktop & Mobile)** | Chrome DevTools Protocol at `http://localhost:3000` | Tested pair editing, rules checks, live AI analysis with consent, Keep/Fix/Escalate actions, copy summary, and 375px/390px mobile viewports. |
+| **Local Browser Tests** | **Verified (Desktop & Mobile)** | Chrome DevTools Protocol at `http://localhost:3000` | Tested pair editing, CSV batch import modal, live validation preview, template download, rules checks, live AI analysis with consent, Keep/Fix/Escalate actions, status filtering, CSV report download, and 375px/390px mobile viewports (0px overflow). |
 | **Live AI Provider Calls** | **Verified (`mode: live_ai`)** | Chrome Network Inspection | Confirmed HTTP 200 from Google Generative Language API, valid JSON schema compliance, and verbatim evidence matching. |
-| **Offline Fixture Runner** | **Informational Summary Utility** | `scripts/evaluate.ts`<br>`npm run eval:development` | Evaluates structural rules and formats summary CSVs. **Does not invoke live AI inference** and must not be cited as a model accuracy benchmark. |
+| **Production Evaluator** | **Honest Execution Utility** | `scripts/evaluate.ts`<br>`npm run eval:development`<br>`npm run eval:holdout` | Evaluates production structural rules without hardcoded answers. Opt-in `--mode live_ai` executes real Gemini calls with quote validation; if API keys are missing, results are explicitly marked `not_run` without fake labels. |
 | **Public Cloud Deployment** | **Pending** | [Deployment Guide](docs/DEPLOYMENT.md) | Local production build is verified; public cloud hosting is pending deployment. |
 
-*Verified on branch `main` at commit `4733d7d`.*
+*Verified on branch `main`.*
 
 ---
 
@@ -234,7 +236,7 @@ MozhiMatch maintains clear separation between test suites, browser testing, and 
 
 ![MozhiMatch Mobile Viewport](evaluation/mobile-375-verified.png)
 
-*Figure 2: Verified 375px mobile viewport audit (`evaluation/mobile-375-verified.png`). Document width matches viewport width exactly (375px clientWidth / 375px scrollWidth, 0px overflow). All touch targets meet the 44px minimum touch target standard.*
+*Figure 2: Verified 375px mobile viewport audit (`evaluation/mobile-375-verified.png`). Document width matches viewport width exactly (375px clientWidth / 375px scrollWidth, 0px overflow). All touch targets meet the 44px minimum touch target standard across both English and Tamil interfaces.*
 
 </div>
 
@@ -249,6 +251,7 @@ MozhiMatch maintains clear separation between test suites, browser testing, and 
 | **Styling** | Tailwind CSS & PostCSS | `4.3.5` | Neo-brutalist variables (`#FFFDF5` paper, `#171717` ink, `#2154F4` blue). |
 | **Typography** | Geist & Noto Sans Tamil | `5.3.0` | Bilingual typography with specialized Tamil line heights (`1.7`). |
 | **Validation** | Zod | `4.6.7` | Compile-time and runtime validation for API schemas and Gemini responses. |
+| **CSV Engine** | PapaParse | `5.7.1` | RFC 4180 compliant CSV parser and serializer with multiline and UTF-8 BOM support. |
 | **AI Integration** | Google Gemini REST API | Beta | Direct server-side REST integration with JSON schema enforcement. |
 | **Localization** | `next-intl` | `4.15.1` | Instant English and Tamil interface switching. |
 | **Testing** | Vitest & Playwright | `5.1.1` / `1.65.1` | Fast unit tests and browser automation. |
@@ -262,25 +265,26 @@ MozhiMatch/
 ├── docs/                      # Technical documentation
 │   ├── assets/                # Presentation assets (banner.svg, banner.png)
 │   ├── ARCHITECTURE.md        # Architecture, sequence diagrams & failure modes
-│   ├── API_CONTRACTS.md       # API schemas & error codes
+│   ├── API_CONTRACTS.md       # API schemas, CSV import/export contracts & error codes
 │   ├── DEPLOYMENT.md          # Local & Vercel deployment guide
-│   ├── EVALUATION.md          # Evaluation framework & fixture runner clarifications
+│   ├── EVALUATION.md          # Evaluation framework & evaluator mode specifications
 │   ├── PRIVACY.md             # Privacy boundaries & data handling
 │   └── examples/              # Sample JSON request and response payloads
 ├── evaluation/                # Verified screenshots & fixture CSVs
 │   ├── desktop-verified.png   # Desktop workbench verification screenshot
 │   ├── mobile-375-verified.png# 375px mobile audit screenshot
-│   └── mobile-390-verified.png# 390px mobile audit screenshot
+│   ├── results-development.csv# Honest development evaluation output
+│   └── results-holdout.csv    # Honest holdout evaluation output
 ├── scripts/                   # Development utilities
-│   └── evaluate.ts            # Offline fixture runner (structural rules & CSVs)
+│   └── evaluate.ts            # Production evaluator (structural rules & opt-in live AI)
 ├── src/
 │   ├── app/                   # Next.js App Router (workbench UI & API routes)
-│   ├── components/workbench/  # Workbench UI components
+│   ├── components/workbench/  # Workbench UI components & CsvImportModal
 │   ├── fixtures/              # Synthetic test fixtures (development & holdout)
 │   ├── i18n/                  # Bilingual locale provider
-│   ├── lib/                   # AI client, contracts, rules, and server guards
+│   ├── lib/                   # AI client, contracts, rules, server guards, CSV engines
 │   └── messages/              # English (`en.json`) and Tamil (`ta.json`) translations
-├── tests/                     # Automated Vitest test suites (unit & API)
+├── tests/                     # Automated Vitest test suites (11 suites, 57 tests)
 ├── package.json               # Project manifest, scripts, and dependencies
 └── README.md                  # Project documentation & presentation
 ```

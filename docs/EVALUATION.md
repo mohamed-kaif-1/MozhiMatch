@@ -1,56 +1,80 @@
 # Evaluation & Verification Plan
 
-This document outlines the evaluation framework for MozhiMatch, detailing test fixtures, the role of offline scripts, and the protocol for live AI verification.
+This document outlines the evaluation framework for MozhiMatch, detailing synthetic benchmark fixtures, the production evaluation runner (`scripts/evaluate.ts`), and honest metric reporting.
 
 ---
 
 ## Fixture Datasets
 
-The repository maintains two synthetic test sets in `src/fixtures/`:
+The repository maintains two original synthetic test sets in `src/fixtures/`:
 
 1. **Development Set (`src/fixtures/development.json`)**:
    5 paired English–Tamil multiple choice items designed for local development and allowlisted practice in demo environments:
-   - `DEV_NEGATION`: Negation drop in Tamil stem (`NOT a fruit` vs `இவற்றில் பழம் எது?`).
-   - `DEV_VERB`: Direction of action flipped in stem (`received` vs `வழங்கப்பட்டது`).
-   - `DEV_CLEAN`: Parallel, semantically equivalent item serving as a clean control.
-   - `DEV_UNCERTAIN`: Ambiguous proper name transliteration (`K. Arumugam` vs `க. ஆறுமுகம்`).
-   - `DEV_STRUCTURE`: Structural option count mismatch (4 English options vs 3 Tamil options).
+   - `DEV_NEGATION`: Negation drop in Tamil stem (`NOT a fruit` vs `இவற்றில் பழம் எது?`). Expected: `meaning_changed`.
+   - `DEV_VERB`: Direction of action flipped in stem (`received` vs `வழங்கப்பட்டது`). Expected: `meaning_changed`.
+   - `DEV_CLEAN`: Parallel, semantically equivalent item serving as a clean control. Expected: `no_issue_found`.
+   - `DEV_UNCERTAIN`: Ambiguous proper name transliteration (`K. Arumugam` vs `க. ஆறுமுகம்`). Expected: `needs_review`.
+   - `DEV_STRUCTURE`: Structural option count mismatch (4 English options vs 3 Tamil options). Expected: `needs_review`.
 
 2. **Holdout Set (`src/fixtures/holdout-inputs.json` & `src/fixtures/holdout-expected.json`)**:
-   10 synthetic items covering material discrepancies, clean controls, and ambiguity cases for human and automated review.
+   10 synthetic items covering material discrepancies, clean controls, and ambiguity cases for automated evaluation and human auditing.
 
 ---
 
-## Clarification on `scripts/evaluate.ts` & Evaluation CSVs
+## Production Evaluation Runner (`scripts/evaluate.ts`)
 
-> [!IMPORTANT]
-> **Important Note on `scripts/evaluate.ts`:**
-> The evaluation script (`scripts/evaluate.ts`), executed via `npm run eval:development` and `npm run eval:holdout`, is an **offline development utility** that:
-> 1. Parses fixture JSON files;
-> 2. Runs pure deterministic structural checks (`runRules()`);
-> 3. Maps known fixture IDs (such as `DEV_NEGATION` or `DEV_VERB`) to expected statuses for test coverage reporting;
-> 4. Emits summary CSVs (`evaluation/results-development.csv`, `evaluation/results-holdout.csv`).
->
-> **It does not perform live AI model inference.** Even if environment variables indicate an API key is present, the script generates rule and fixture summaries rather than live LLM evaluations.
->
-> **Do not treat these CSV outputs as measured AI accuracy, semantic benchmarks, or model precision percentages.** Actual live model evaluation must be verified through end-to-end browser and API network interaction with the Google Generative Language API.
+The evaluation runner supports two explicitly chosen modes:
+
+```bash
+# 1. Production Structural Rules Evaluation (default, zero-cost)
+npm run eval:development
+npm run eval:holdout
+
+# 2. Opt-in Live AI Semantic Evaluation (requires GEMINI_API_KEY)
+node --experimental-strip-types scripts/evaluate.ts --split development --mode live_ai
+node --experimental-strip-types scripts/evaluate.ts --split holdout --mode live_ai
+```
+
+### Evaluation Mode Contracts
+
+1. **Rules Mode (`--mode rules`)**:
+   - Executes the production structural rules engine (`checkStructuralRules()`).
+   - Identifies option count mismatches, duplicate labels, label set parity, Tamil numerals (`௦–௯`), numeric tokens, and unit differences.
+   - Per the production safety contract, rules-only items are assigned status `needs_review` because deterministic checks cannot certify semantic equivalence.
+2. **Live AI Mode (`--mode live_ai`)**:
+   - Opt-in only. Requires `GEMINI_API_KEY` and `AI_MODE !== "off"`.
+   - If credentials are not present, the runner explicitly marks results `not_run` and exits safely without faking predictions or assigning `live_ai` labels.
+   - When executed, sends bounded requests to the Google Generative Language API (`gemini-2.5-flash`), enforces the JSON response schema, and verifies exact verbatim substring quotes in both English and Tamil text.
+   - Any grounding failure or timeout safely falls back to `needs_review`.
+
+### Metrics & CSV Artifacts
+
+The runner scores predictions against expected ground-truth labels and outputs:
+- **Exact Match Ratio**: Predictions matching expected status.
+- **Material Hits**: Discrepancies correctly identified as `meaning_changed`.
+- **Critical Misses**: Material changes falsely marked as `no_issue_found` (0 allowed).
+- **False Alarms**: Clean controls falsely flagged as `meaning_changed`.
+- **Grounded Evidence Ratio**: Percentage of items with verbatim source quotations.
+
+Results are written to `evaluation/results-development.csv` and `evaluation/results-holdout.csv` with columns:
+```csv
+fixture_id,condition,status,expected_status,structural_issues,evidence_grounded,notes
+```
 
 ---
 
 ## Verification Layers
 
-To ensure honest reporting, MozhiMatch evaluates quality across five distinct layers:
-
 1. **Automated Unit & Contract Tests (`npm run test`)**:
-   - 44 tests across 9 test suites (Vitest).
-   - Validates structural rules, Zod schemas, exact quote matching, timing-safe authorization, export summaries, and UI state reducer transitions.
+   - **57 tests across 11 test suites** (Vitest).
+   - Validates CSV import (encoding, BOM, multiline, option pairing, atomicity), CSV export (formula injection sanitization, summary rows, BOM), structural rules, Zod schemas, exact quote matching, timing-safe authorization, and review state reducer transitions.
 2. **Static Quality Gates (`npm run typecheck`, `npm run lint`, `npm run build`)**:
-   - TypeScript compiler (`tsc --noEmit`), ESLint 9, and Next.js 16.4.6 production compiler.
+   - TypeScript 5.9 strict type checking, ESLint 9, and Next.js 16.4.6 production compilation.
 3. **Local Browser Smoke Tests**:
-   - Tested through Chrome DevTools Protocol at `http://localhost:3000`.
-   - Validates text entry, option addition/removal, Rules mode analysis, live AI analysis with reviewer consent, Keep/Fix/Escalate triage buttons, clipboard copy, and zero-overflow mobile viewports (375px & 390px) with 44px minimum touch targets.
+   - Verified via Chrome DevTools Protocol at `http://localhost:3000`.
+   - Validates CSV template download, sample batch import preview, atomic replacement confirmation, structural analysis, Keep/Fix/Escalate triage decisions, status filtering, CSV report download, and mobile viewports (375px & 390px with zero horizontal scroll and 44px minimum touch targets).
 4. **Live Provider API Calls**:
-   - Verified via network inspections of requests to `POST https://generativelanguage.googleapis.com/v1beta/models/...:generateContent`.
-   - Confirms valid JSON payloads conforming to `PROVIDER_RESPONSE_SCHEMA` and exact verbatim quote matches in Tamil and English source text.
+   - Verified network interactions with Google Generative Language REST API (`/v1beta/models/...:generateContent`).
+   - Validates JSON payload compliance, verbatim evidence extraction, and `mode: "live_ai"` responses.
 5. **Public Cloud Deployment Verification**:
-   - Currently pending deployment on Vercel. Local production builds and browser testing are 100% verified.
+   - Production builds succeed locally; public cloud deployment is pending.
