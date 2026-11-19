@@ -112,5 +112,24 @@
     "aiInvalid": "The AI response lacked valid evidence. Review this item manually.",
     "unsupportedContent": "This content needs a human reviewer.",
     "missingTranslation": "Some interface text is unavailable in this language."
+  },
+  "correction": {
+    "suggest": "Suggest correction",
+    "title": "AI-SUGGESTED CORRECTION",
+    "generating": "Generating suggestion…",
+    "original": "Original Tamil",
+    "originalEn": "Original English",
+    "suggested": "Suggested Tamil",
+    "suggestedEn": "Suggested English",
+    "reason": "Reason",
+    "apply": "Apply to editor",
+    "applied": "Correction applied to editor",
+    "undo": "Undo correction",
+    "reject": "Reject",
+    "close": "Close",
+    "editableHint": "You can edit this suggestion before applying.",
+    "noCorrectionNeeded": "Current text is already accurate.",
+    "ambiguous": "Context is insufficient for an automated correction.",
+    "unavailable": "Suggestion generation failed or timed out."
   }
 }

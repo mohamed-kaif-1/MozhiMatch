@@ -8,10 +8,11 @@
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.4.6-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript 5](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node >=24](https://img.shields.io/badge/Node-%3E%3D24-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Gemini 2.5](https://img.shields.io/badge/Model-Gemini%202.5%20Flash-2154F4?style=flat-square&logo=google-gemini&logoColor=white)](https://ai.google.dev/)
+[![Node >=20](https://img.shields.io/badge/Node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Gemini API](https://img.shields.io/badge/Model-Gemini%203.5%20Flash--Lite-2154F4?style=flat-square&logo=google-gemini&logoColor=white)](https://ai.google.dev/)
+[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-Passed%20(62%2F62)-047857?style=flat-square)](final-audit/00-executive-verdict.md)
 
-[Quick Start](#quick-start) • [Workflow](#workflow) • [Architecture](docs/ARCHITECTURE.md) • [Engineering Decisions](#engineering-decisions--trade-offs) • [Verification](#verification--evidence) • [Privacy](docs/PRIVACY.md)
+[Quick Start](#quick-start) • [Workflow](#workflow) • [Architecture](docs/ARCHITECTURE.md) • [Final Audit Report](final-audit/00-executive-verdict.md) • [Engineering Decisions](#engineering-decisions--trade-offs) • [Verification](#verification--evidence) • [Privacy](docs/PRIVACY.md)
 
 </div>
 
@@ -219,9 +220,10 @@ MozhiMatch maintains clear separation between test suites, browser testing, and 
 
 | Check | Result | Location / Command | Scope & Notes |
 |---|---|---|---|
-| **Unit & Contract Tests** | **57 / 57 Passing** (11 suites) | `npm run test` | Validates CSV import (BOM, encoding, multiline, option pairing, atomicity), CSV export (formula injection sanitization, summary rows), Zod contracts, structural rules, evidence quotes, exports, access guards, and state transitions. |
+| **Unit & Contract Tests** | **62 / 62 Passing** (11 suites) | `npm run test` | Validates CSV import (BOM, encoding, multiline, option pairing, atomicity), CSV export (formula injection sanitization, summary rows), Zod contracts, structural rules, evidence quotes, exports, access guards, and state transitions. See [Final Regression Report](final-audit/09-final-regression.md). |
 | **Static Quality Gates** | **0 Errors, Clean Build** | `npm run typecheck`<br>`npm run lint`<br>`npm run build` | TypeScript 5.9 strict typecheck, ESLint 9, and Next.js 16 production compilation. |
-| **Local Browser Tests** | **Verified (Desktop & Mobile)** | Chrome DevTools Protocol at `http://localhost:3000` | Tested pair editing, CSV batch import modal, live validation preview, template download, rules checks, live AI analysis with consent, Keep/Fix/Escalate actions, status filtering, CSV report download, and 375px/390px mobile viewports (0px overflow). |
+| **Local Browser Tests** | **Verified (7 Viewports)** | Chrome DevTools at `http://localhost:3000` | Full-page visual regression across 7 viewports (360px to 1920px), tested pair editing, CSV batch import modal, live validation preview, template download, rules checks, live AI analysis with consent, Keep/Fix/Escalate actions, status filtering, and CSV report download. See [Verified Browser Artifacts](final-audit/evidence/verified-browser-artifacts/). |
+| **Live AI Benchmark** | **1.000 Precision, 0.923 F1** | `final-audit/02-semantic-benchmark.md` | 30 frozen benchmark cases. 0.000 False Negative Rate on bad questions. Resisted adversarial prompt injection attacks that compromised generic LLMs. |
 | **Live AI Provider Calls** | **Verified (`mode: live_ai`)** | Chrome Network Inspection | Confirmed HTTP 200 from Google Generative Language API, valid JSON schema compliance, and verbatim evidence matching. |
 | **Production Evaluator** | **Honest Execution Utility** | `scripts/evaluate.ts`<br>`npm run eval:development`<br>`npm run eval:holdout` | Evaluates production structural rules without hardcoded answers. Opt-in `--mode live_ai` executes real Gemini calls with quote validation; if API keys are missing, results are explicitly marked `not_run` without fake labels. |
 | **Public Cloud Deployment** | **Pending** | [Deployment Guide](docs/DEPLOYMENT.md) | Local production build is verified; public cloud hosting is pending deployment. |

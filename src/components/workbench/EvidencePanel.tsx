@@ -7,7 +7,17 @@ import {
   ReviewDecisionType,
   ValidatedComparison,
 } from "../../lib/contracts/types";
-import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
+import { CorrectionResponse } from "../../lib/contracts/correction";
+import { CorrectionSuggestion } from "./CorrectionSuggestion";
+import { CheckCircle2, AlertTriangle, XCircle, HelpCircle, Sparkles } from "lucide-react";
+
+export interface CorrectionFieldState {
+  isLoading: boolean;
+  suggestion: CorrectionResponse | null;
+  error: string | null;
+  appliedOriginalText: string | null;
+  appliedSuggestedText?: string;
+}
 
 interface EvidencePanelProps {
   item: QuestionItem;
@@ -15,6 +25,13 @@ interface EvidencePanelProps {
   decisions: Record<string, ReviewDecisionType>;
   onSetDecision: (fieldKey: string, decision: ReviewDecisionType) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
+  isStale?: boolean;
+  correctionState?: Record<string, CorrectionFieldState>;
+  onSuggestCorrection?: (fieldKey: string, comp: ValidatedComparison) => void;
+  onApplyCorrection?: (fieldKey: string, text: string) => void;
+  onUndoCorrection?: (fieldKey: string) => void;
+  onRejectCorrection?: (fieldKey: string) => void;
+  onCloseCorrection?: (fieldKey: string) => void;
 }
 
 function HighlightedText({
@@ -29,7 +46,7 @@ function HighlightedText({
   isTamil?: boolean;
 }) {
   if (start < 0 || end > fullText.length || start >= end) {
-    return <span className={isTamil ? "font-tamil" : ""}>{fullText}</span>;
+    return <span className={isTamil ? "font-tamil leading-[1.72]" : "leading-relaxed"}>{fullText}</span>;
   }
 
   const before = fullText.slice(0, start);
@@ -37,9 +54,9 @@ function HighlightedText({
   const after = fullText.slice(end);
 
   return (
-    <span className={`leading-relaxed ${isTamil ? "font-tamil" : ""}`}>
+    <span className={isTamil ? "font-tamil leading-[1.72]" : "leading-relaxed"}>
       {before}
-      <mark className="bg-[#FFE066] text-black px-1 font-semibold border-b-2 border-black">
+      <mark className="bg-[#FEF08A] text-slate-900 px-1 py-0.5 rounded-[2px] font-semibold">
         {target}
       </mark>
       {after}
@@ -53,13 +70,20 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   decisions,
   onSetDecision,
   t,
+  isStale = false,
+  correctionState = {},
+  onSuggestCorrection,
+  onApplyCorrection,
+  onUndoCorrection,
+  onRejectCorrection,
+  onCloseCorrection,
 }) => {
   if (!analysisItem) {
     return (
-      <div className="paper-panel p-8 text-center text-gray-600 space-y-3">
-        <HelpCircle className="w-10 h-10 mx-auto text-gray-400" />
-        <h3 className="font-bold text-lg text-black">{t("status.editing")}</h3>
-        <p className="text-sm max-w-md mx-auto">{t("editor.empty")}</p>
+      <div className="bg-[#F8FAFC] border-[1.5px] border-slate-900 rounded-[6px] p-6 text-center text-slate-500 space-y-2.5">
+        <HelpCircle className="w-8 h-8 mx-auto text-slate-400" />
+        <h3 className="font-bold text-sm text-slate-800">{t("status.editing")}</h3>
+        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">{t("editor.empty")}</p>
       </div>
     );
   }
@@ -68,23 +92,23 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     switch (status) {
       case "meaning_changed":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#FFE0DB] text-[#8A241A] border border-black font-bold text-xs uppercase tracking-wide">
-            <XCircle className="w-4 h-4" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FEF2F2] text-[#DC2626] border border-red-200 font-mono font-bold text-[11px] rounded-[4px] uppercase tracking-tight">
+            <XCircle className="w-3.5 h-3.5" />
             {t("status.meaning_changed")}
           </span>
         );
       case "no_issue_found":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#D6F3DD] text-[#18552C] border border-black font-bold text-xs uppercase tracking-wide">
-            <CheckCircle2 className="w-4 h-4" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#ECFDF5] text-[#047857] border border-emerald-200 font-mono font-bold text-[11px] rounded-[4px] uppercase tracking-tight">
+            <CheckCircle2 className="w-3.5 h-3.5" />
             {t("status.no_issue_found")}
           </span>
         );
       case "needs_review":
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#FFF0B3] text-[#654800] border border-black font-bold text-xs uppercase tracking-wide">
-            <AlertTriangle className="w-4 h-4" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFFBEB] text-[#B45309] border border-amber-200 font-mono font-bold text-[11px] rounded-[4px] uppercase tracking-tight">
+            <AlertTriangle className="w-3.5 h-3.5" />
             {t("status.needs_review")}
           </span>
         );
@@ -95,20 +119,20 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     switch (relation) {
       case "different":
         return (
-          <span className="px-2 py-0.5 bg-[#FFE0DB] text-[#8A241A] border border-black text-xs font-bold">
+          <span className="px-1.5 py-0.5 bg-[#FEF2F2] text-[#DC2626] border border-red-200 rounded-[4px] text-[10px] font-mono font-bold uppercase">
             DIFFERENT
           </span>
         );
       case "equivalent":
         return (
-          <span className="px-2 py-0.5 bg-[#D6F3DD] text-[#18552C] border border-black text-xs font-bold">
+          <span className="px-1.5 py-0.5 bg-[#ECFDF5] text-[#047857] border border-emerald-200 rounded-[4px] text-[10px] font-mono font-bold uppercase">
             EQUIVALENT
           </span>
         );
       case "uncertain":
       default:
         return (
-          <span className="px-2 py-0.5 bg-[#FFF0B3] text-[#654800] border border-black text-xs font-bold">
+          <span className="px-1.5 py-0.5 bg-[#FFFBEB] text-[#B45309] border border-amber-200 rounded-[4px] text-[10px] font-mono font-bold uppercase">
             UNCERTAIN
           </span>
         );
@@ -122,44 +146,54 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Item Summary Header */}
-      <div className="paper-panel p-4 flex flex-wrap items-center justify-between gap-4 bg-white">
-        <div className="flex items-center gap-3">
-          <span className="font-mono font-bold bg-[#FFE066] px-2.5 py-1 border border-black text-sm">
+    <div className="bg-[#F8FAFC] border-[1.5px] border-slate-900 rounded-[6px] p-3 sm:p-4 space-y-3.5 max-h-[calc(100vh-140px)] overflow-y-auto rail-scroll">
+      {/* Findings Header */}
+      <div className="bg-white border border-slate-200 rounded-[6px] p-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono font-bold bg-[#EEF3FF] text-[#1435AD] border border-blue-200 px-2 py-0.5 rounded-[4px] text-xs">
             {item.id}
           </span>
-          <h3 className="text-lg font-bold">Evaluation Findings</h3>
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900">Findings & Evidence</h3>
         </div>
         <div>{getStatusBadge(analysisItem.status)}</div>
       </div>
 
-      {/* Structural Findings Alerts */}
+      {/* Stale / Draft Notice if edited since analysis */}
+      {isStale && (
+        <div className="bg-[#FFFBEB] border border-amber-200 rounded-[6px] p-2.5 text-[#B45309] text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-[#B45309]" />
+          <span className="font-medium leading-relaxed">{t("status.stale")}</span>
+        </div>
+      )}
+
+      {/* Structural Differences Alerts */}
       {analysisItem.structuralFindings.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-bold uppercase tracking-wider text-gray-700">
-            Structural & Format Differences ({analysisItem.structuralFindings.length})
-          </h4>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Structural Differences ({analysisItem.structuralFindings.length})
+            </span>
+          </div>
           {analysisItem.structuralFindings.map((finding, idx) => (
             <div
               key={idx}
-              className="paper-panel p-4 border-2 border-black bg-[#FFF0B3] text-[#654800] space-y-2"
+              className="bg-[#FFFBEB] border border-amber-200 rounded-[6px] p-3 text-[#B45309] space-y-1.5"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs uppercase bg-black text-white px-2 py-0.5">
+                <span className="font-mono font-bold text-[10px] uppercase bg-slate-900 text-white px-1.5 py-0.5 rounded-[3px]">
                   {finding.code}
                 </span>
-                <span className="text-xs font-semibold">
-                  Field: {finding.field.kind} {finding.field.label ? `(${finding.field.label})` : ""}
+                <span className="text-[11px] font-medium text-slate-700">
+                  Field: <strong>{finding.field.kind} {finding.field.label ? `(${finding.field.label})` : ""}</strong>
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-xs font-mono pt-1">
-                <div>
-                  <span className="font-bold block text-gray-800">English tokens:</span>
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-slate-800">
+                <div className="bg-white/80 p-1.5 rounded-[4px] border border-amber-100">
+                  <span className="font-bold text-[10px] uppercase text-slate-500 block">English:</span>
                   {finding.enTokens.length > 0 ? finding.enTokens.join(", ") : "—"}
                 </div>
-                <div>
-                  <span className="font-bold block text-gray-800">Tamil tokens:</span>
+                <div className="bg-white/80 p-1.5 rounded-[4px] border border-amber-100 font-tamil">
+                  <span className="font-bold text-[10px] uppercase text-slate-500 block font-sans">Tamil:</span>
                   {finding.taTokens.length > 0 ? finding.taTokens.join(", ") : "—"}
                 </div>
               </div>
@@ -170,16 +204,16 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
       {/* Rules-Only / Pending Semantic Review Banner */}
       {analysisItem.comparisons.length === 0 && (
-        <div className="paper-panel p-5 border-2 border-black bg-[#FFF0B3] text-[#654800] space-y-2">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 shrink-0 text-[#654800]" />
-            <h4 className="font-bold text-sm">
+        <div className="bg-[#FFFBEB] border border-amber-200 rounded-[6px] p-3 text-[#B45309] space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-[#B45309]" />
+            <h4 className="font-bold text-xs">
               {analysisItem.structuralFindings.length === 0
                 ? t("review.noFindings")
                 : t("status.needs_review")}
             </h4>
           </div>
-          <p className="text-xs leading-relaxed text-gray-800">
+          <p className="text-[11px] leading-relaxed text-slate-700">
             {analysisItem.structuralFindings.length === 0
               ? t("review.noFindings")
               : t("review.bounded")}
@@ -189,25 +223,27 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
       {/* Manual Field Review Rows when no semantic comparisons exist */}
       {analysisItem.comparisons.length === 0 && (
-        <div className="space-y-4">
-          <h4 className="text-sm font-bold uppercase tracking-wider text-gray-700">
-            Manual Review Fields
-          </h4>
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Manual Field Decisions
+            </span>
+          </div>
 
           {/* Stem row */}
-          <div className="paper-panel p-4 space-y-3 border-l-4 border-l-black">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
-              <span className="font-bold text-sm bg-black text-white px-2 py-0.5">
+          <div className="bg-white border border-slate-200 rounded-[6px] p-3 space-y-2 border-l-[3.5px] border-l-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2">
+              <span className="font-mono font-bold text-xs text-slate-900">
                 Stem (Question)
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => onSetDecision("stem", "keep")}
-                  className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
+                  className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                     decisions["stem"] === "keep"
-                      ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
-                      : "bg-white hover:bg-gray-50"
+                      ? "bg-[#ECFDF5] text-[#047857] border-emerald-300"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   {t("actions.keep")}
@@ -215,10 +251,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => onSetDecision("stem", "fix")}
-                  className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
+                  className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                     decisions["stem"] === "fix"
-                      ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
-                      : "bg-white hover:bg-gray-50"
+                      ? "bg-[#FEF2F2] text-[#DC2626] border-red-300"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   {t("actions.fix")}
@@ -226,24 +262,24 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => onSetDecision("stem", "escalate")}
-                  className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
+                  className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                     decisions["stem"] === "escalate"
-                      ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
-                      : "bg-white hover:bg-gray-50"
+                      ? "bg-[#FFFBEB] text-[#B45309] border-amber-300"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   {t("actions.escalate")}
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-[#FFFDF5] p-2.5 border">
+            <div className="grid grid-cols-1 gap-2 text-xs bg-slate-50 p-2 rounded-[4px] border border-slate-100">
               <div>
-                <span className="font-bold text-gray-500 block">English:</span>
-                <p>{item.en.stem}</p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">EN:</span>
+                <p className="text-slate-800 text-[12px] leading-snug">{item.en.stem}</p>
               </div>
               <div>
-                <span className="font-bold text-gray-500 block font-tamil">தமிழ்:</span>
-                <p className="font-tamil">{item.ta.stem}</p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block font-sans">TA:</span>
+                <p className="font-tamil text-slate-800 text-[13px] leading-[1.72]">{item.ta.stem}</p>
               </div>
             </div>
           </div>
@@ -253,19 +289,19 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             const fieldKey = `option:${opt.label}`;
             const taOpt = item.ta.options.find((o) => o.label === opt.label);
             return (
-              <div key={opt.label} className="paper-panel p-4 space-y-3 border-l-4 border-l-black">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
-                  <span className="font-bold text-sm bg-black text-white px-2 py-0.5">
+              <div key={opt.label} className="bg-white border border-slate-200 rounded-[6px] p-3 space-y-2 border-l-[3.5px] border-l-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2">
+                  <span className="font-mono font-bold text-xs text-slate-900">
                     Option {opt.label}
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "keep")}
-                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
+                      className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                         decisions[fieldKey] === "keep"
-                          ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
-                          : "bg-white hover:bg-gray-50"
+                          ? "bg-[#ECFDF5] text-[#047857] border-emerald-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                       }`}
                     >
                       {t("actions.keep")}
@@ -273,10 +309,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "fix")}
-                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
+                      className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                         decisions[fieldKey] === "fix"
-                          ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
-                          : "bg-white hover:bg-gray-50"
+                          ? "bg-[#FEF2F2] text-[#DC2626] border-red-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                       }`}
                     >
                       {t("actions.fix")}
@@ -284,24 +320,24 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "escalate")}
-                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
+                      className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                         decisions[fieldKey] === "escalate"
-                          ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
-                          : "bg-white hover:bg-gray-50"
+                          ? "bg-[#FFFBEB] text-[#B45309] border-amber-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                       }`}
                     >
                       {t("actions.escalate")}
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-[#FFFDF5] p-2.5 border">
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2 rounded-[4px] border border-slate-100">
                   <div>
-                    <span className="font-bold text-gray-500 block">English:</span>
-                    <p>{opt.text}</p>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">EN:</span>
+                    <p className="text-slate-800 text-[12px] leading-snug">{opt.text}</p>
                   </div>
                   <div>
-                    <span className="font-bold text-gray-500 block font-tamil">தமிழ்:</span>
-                    <p className="font-tamil">{taOpt ? taOpt.text : "—"}</p>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block font-sans">TA:</span>
+                    <p className="font-tamil text-slate-800 text-[13px] leading-[1.72]">{taOpt ? taOpt.text : "—"}</p>
                   </div>
                 </div>
               </div>
@@ -312,10 +348,12 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
       {/* Semantic Comparisons List */}
       {analysisItem.comparisons.length > 0 && (
-        <div className="space-y-4">
-          <h4 className="text-sm font-bold uppercase tracking-wider text-gray-700">
-            Semantic Comparisons ({analysisItem.comparisons.length})
-          </h4>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Semantic Comparisons ({analysisItem.comparisons.length})
+            </span>
+          </div>
 
           {analysisItem.comparisons.map((comp, idx) => {
             const fieldKey = comp.field.kind === "stem" ? "stem" : `option:${comp.field.label}`;
@@ -323,40 +361,41 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             const enFull = getFieldTextForComp(comp.field.kind, comp.field.label, "en");
             const taFull = getFieldTextForComp(comp.field.kind, comp.field.label, "ta");
 
+            const borderAccent =
+              comp.relation === "different"
+                ? "border-l-[#DC2626]"
+                : comp.relation === "uncertain"
+                ? "border-l-[#B45309]"
+                : "border-l-[#047857]";
+
             return (
               <div
                 key={idx}
-                className={`paper-panel p-5 space-y-4 transition-all ${
-                  comp.relation === "different"
-                    ? "border-l-8 border-l-[#8A241A]"
-                    : comp.relation === "uncertain"
-                    ? "border-l-8 border-l-[#654800]"
-                    : "border-l-4 border-l-[#18552C]"
-                }`}
+                className={`bg-white border border-slate-200 rounded-[6px] p-3.5 space-y-3 border-l-[4px] ${borderAccent}`}
               >
                 {/* Header & Badges */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm bg-black text-white px-2 py-0.5">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-xs text-slate-900">
                       {comp.field.kind === "stem"
-                        ? "Stem (Question)"
+                        ? "Stem"
                         : `Option ${comp.field.label}`}
                     </span>
                     {getRelationBadge(comp.relation)}
-                    <span className="text-xs font-mono bg-gray-100 border px-1.5 py-0.5">
+                    <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-[3px]">
                       {comp.reasonCode}
                     </span>
                   </div>
 
                   {/* Reviewer Action Buttons */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "keep")}
-                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] transition-all ${
+                      className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                         currentDecision === "keep"
-                          ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
-                          : "bg-white hover:bg-gray-50"
+                          ? "bg-[#ECFDF5] text-[#047857] border-emerald-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                       }`}
                     >
                       {t("actions.keep")}
@@ -364,10 +403,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "fix")}
-                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] transition-all ${
+                      className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                         currentDecision === "fix"
-                          ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
-                          : "bg-white hover:bg-gray-50"
+                          ? "bg-[#FEF2F2] text-[#DC2626] border-red-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                       }`}
                     >
                       {t("actions.fix")}
@@ -375,10 +414,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "escalate")}
-                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] transition-all ${
+                      className={`text-[11px] px-2 py-1 rounded-[4px] border font-bold transition-all ${
                         currentDecision === "escalate"
-                          ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
-                          : "bg-white hover:bg-gray-50"
+                          ? "bg-[#FFFBEB] text-[#B45309] border-amber-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                       }`}
                     >
                       {t("actions.escalate")}
@@ -387,9 +426,9 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 </div>
 
                 {/* Evidence In Context */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-[#FFFDF5] p-3 border">
+                <div className="space-y-2 text-xs bg-slate-50 p-2.5 rounded-[4px] border border-slate-100">
                   <div>
-                    <span className="text-xs font-bold text-gray-500 block mb-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">
                       English Source with Evidence:
                     </span>
                     <HighlightedText
@@ -398,8 +437,8 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                       end={comp.en.end}
                     />
                   </div>
-                  <div>
-                    <span className="text-xs font-bold text-gray-500 block mb-1 font-tamil">
+                  <div className="pt-1 border-t border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5 font-sans">
                       தமிழ் மூலம் (Evidence in Tamil):
                     </span>
                     <HighlightedText
@@ -412,10 +451,43 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 </div>
 
                 {/* Model Explanation */}
-                <div className="text-xs text-gray-700 bg-gray-50 p-2.5 border">
-                  <span className="font-bold block text-gray-900 mb-0.5">Explanation:</span>
-                  <p>{comp.explanation}</p>
+                <div className="text-xs text-slate-700 bg-blue-50/50 p-2 rounded-[4px] border border-blue-100">
+                  <span className="font-bold text-slate-900 block text-[11px] mb-0.5">Explanation:</span>
+                  <p className="leading-relaxed">{comp.explanation}</p>
                 </div>
+
+                {/* AI Correction Proposal Section (only for non-equivalent findings) */}
+                {(comp.relation === "different" || comp.relation === "uncertain") && onSuggestCorrection && (
+                  <div className="pt-0.5">
+                    {!correctionState[fieldKey]?.suggestion &&
+                      !correctionState[fieldKey]?.isLoading &&
+                      !correctionState[fieldKey]?.appliedOriginalText &&
+                      !correctionState[fieldKey]?.error && (
+                        <button
+                          type="button"
+                          onClick={() => onSuggestCorrection(fieldKey, comp)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-[#2154F4] bg-[#EEF3FF] hover:bg-[#E0EAFF] border border-[#2154F4]/30 rounded-[4px] transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-[#2154F4]" />
+                          <span>{t("correction.suggest")}</span>
+                        </button>
+                      )}
+
+                    {correctionState[fieldKey] && (
+                      <CorrectionSuggestion
+                        isLoading={correctionState[fieldKey].isLoading}
+                        suggestion={correctionState[fieldKey].suggestion}
+                        error={correctionState[fieldKey].error}
+                        appliedOriginalText={correctionState[fieldKey].appliedOriginalText}
+                        onApply={(text) => onApplyCorrection?.(fieldKey, text)}
+                        onUndo={() => onUndoCorrection?.(fieldKey)}
+                        onReject={() => onRejectCorrection?.(fieldKey)}
+                        onClose={() => onCloseCorrection?.(fieldKey)}
+                        t={t}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -424,6 +496,3 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     </div>
   );
 };
-
-
-

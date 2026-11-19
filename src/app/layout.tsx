@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "@fontsource/geist";
 import "@fontsource/noto-sans-tamil";
 import "./globals.css";
 
@@ -23,8 +22,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen square-grid antialiased">{children}</body>
+      <body className="min-h-screen bg-[#F8FAFC] text-[#0F172A] antialiased">
+        {children}
+      </body>
     </html>
   );
 }
-

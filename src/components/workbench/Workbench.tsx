@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useReducer, useRef, useState } from "react";
+import React, { useEffect, useReducer, useRef, useState } from "react";
 import { reviewReducer, initialReviewState } from "../../lib/core/review-state";
 import { useI18n } from "../../i18n/provider";
 import { LocaleControl } from "../LocaleControl";
 import { PairEditor } from "./PairEditor";
 import { ReviewQueue, StatusFilter } from "./ReviewQueue";
-import { EvidencePanel } from "./EvidencePanel";
+import { EvidencePanel, CorrectionFieldState } from "./EvidencePanel";
 import { CsvImportModal } from "./CsvImportModal";
 import { formatReviewSummary } from "../../lib/core/export";
 import { generateReviewCsv } from "../../lib/core/csv-export";
 import devFixtures from "../../fixtures/development.json";
-import { QuestionItem, AnalyzeRequest } from "../../lib/contracts/types";
+import { QuestionItem, AnalyzeRequest, ValidatedComparison, AnalyzeResponse } from "../../lib/contracts/types";
+import { CorrectionRequest, CorrectionResponse } from "../../lib/contracts/correction";
 import { APP_LIMITS } from "../../lib/contracts/config";
 import {
   Play,
@@ -23,7 +24,6 @@ import {
   Loader2,
   Info,
   X,
-  FileSpreadsheet,
   Download,
 } from "lucide-react";
 
@@ -37,19 +37,61 @@ export const Workbench: React.FC = () => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
+  const [correctionStates, setCorrectionStates] = useState<Record<string, CorrectionFieldState>>({});
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [prevAnalysisResponse, setPrevAnalysisResponse] = useState<AnalyzeResponse | null>(null);
+  const [cachedAnalysis, setCachedAnalysis] = useState<AnalyzeResponse | null>(null);
+  const correctionAbortControllersRef = useRef<Record<string, AbortController>>({});
+
+  // Sync cached analysis when analysisResponse changes
+  if (state.analysisResponse !== prevAnalysisResponse) {
+    setPrevAnalysisResponse(state.analysisResponse);
+    if (state.analysisResponse) {
+      setCachedAnalysis(state.analysisResponse);
+    }
+  }
+
+  // Close open modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showHelpModal) setShowHelpModal(false);
+        if (showResetConfirm) setShowResetConfirm(false);
+        if (showExportModal) setShowExportModal(false);
+        if (showImportModal) setShowImportModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showHelpModal, showResetConfirm, showExportModal, showImportModal]);
 
   const activeItem =
     state.items.find((i) => i.id === state.activeItemId) || state.items[0];
 
-  const analysisItem =
+  const activeAnalysisItem =
     state.analysisResponse?.items.find((i) => i.id === state.activeItemId) || null;
+
+  const cachedItem =
+    cachedAnalysis?.items.find((i) => i.id === state.activeItemId) || null;
+
+  const hasCorrectionActive = Object.keys(correctionStates).some(
+    (k) =>
+      k.startsWith(`${state.activeItemId}:`) &&
+      (Boolean(correctionStates[k]?.appliedOriginalText) ||
+        Boolean(correctionStates[k]?.suggestion) ||
+        Boolean(correctionStates[k]?.isLoading))
+  );
+
+  const panelAnalysisItem = activeAnalysisItem || (hasCorrectionActive ? cachedItem : null);
+  const isStale = Boolean(!activeAnalysisItem && panelAnalysisItem);
 
   // Handle example selection
   const handleLoadExample = (exampleId: string) => {
     const fixture = devFixtures.find((f) => f.id === exampleId);
     if (fixture) {
+      setCorrectionStates({});
+      setCachedAnalysis(null);
       dispatch({
         type: "LOAD_FIXTURE",
         payload: [fixture as QuestionItem],
@@ -204,6 +246,237 @@ export const Workbench: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleSuggestCorrection = async (
+    fieldKey: string,
+    comp: ValidatedComparison
+  ) => {
+    const itemKey = `${activeItem.id}:${fieldKey}`;
+    if (correctionStates[itemKey]?.isLoading) return;
+
+    if (!state.consent && state.mode === "ai") {
+      setCorrectionStates((prev) => ({
+        ...prev,
+        [itemKey]: {
+          isLoading: false,
+          suggestion: null,
+          error: t("errors.consentRequired"),
+          appliedOriginalText: null,
+          appliedSuggestedText: undefined,
+        },
+      }));
+      return;
+    }
+
+    const enFull =
+      comp.field.kind === "stem"
+        ? activeItem.en.stem
+        : activeItem.en.options.find((o) => o.label === comp.field.label)?.text || "";
+    const taFull =
+      comp.field.kind === "stem"
+        ? activeItem.ta.stem
+        : activeItem.ta.options.find((o) => o.label === comp.field.label)?.text || "";
+
+    if (correctionAbortControllersRef.current[itemKey]) {
+      correctionAbortControllersRef.current[itemKey].abort();
+    }
+    const controller = new AbortController();
+    correctionAbortControllersRef.current[itemKey] = controller;
+
+    const currentRevision = state.revision;
+    const currentItemId = activeItem.id;
+
+    setCorrectionStates((prev) => ({
+      ...prev,
+      [itemKey]: {
+        isLoading: true,
+        suggestion: null,
+        error: null,
+        appliedOriginalText: null,
+        appliedSuggestedText: undefined,
+      },
+    }));
+
+    try {
+      const payload: CorrectionRequest = {
+        requestId: crypto.randomUUID(),
+        itemId: currentItemId,
+        revision: currentRevision,
+        field: comp.field,
+        sourceLanguage: "en",
+        targetLanguage: "ta",
+        sourceText: enFull,
+        currentText: taFull,
+        findingExplanation: comp.explanation,
+        reasonCode: comp.reasonCode,
+        consent: state.consent,
+      };
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (state.demoCode.trim().length > 0) {
+        headers["X-Demo-Code"] = state.demoCode.trim();
+      }
+
+      const res = await fetch("/api/correction", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        const msg = errJson?.error?.messageKey
+          ? t(errJson.error.messageKey)
+          : t("correction.unavailable");
+        setCorrectionStates((prev) => ({
+          ...prev,
+          [itemKey]: {
+            isLoading: false,
+            suggestion: null,
+            error: msg,
+            appliedOriginalText: null,
+            appliedSuggestedText: undefined,
+          },
+        }));
+        return;
+      }
+
+      const data: CorrectionResponse = await res.json();
+
+      setCorrectionStates((prev) => ({
+        ...prev,
+        [itemKey]: {
+          isLoading: false,
+          suggestion: data,
+          error: null,
+          appliedOriginalText: null,
+          appliedSuggestedText: undefined,
+        },
+      }));
+    } catch (err: unknown) {
+      if ((err as Error)?.name === "AbortError") return;
+      setCorrectionStates((prev) => ({
+        ...prev,
+        [itemKey]: {
+          isLoading: false,
+          suggestion: null,
+          error: t("correction.unavailable"),
+          appliedOriginalText: null,
+          appliedSuggestedText: undefined,
+        },
+      }));
+    }
+  };
+
+  const handleApplyCorrection = (fieldKey: string, suggestedText: string) => {
+    const itemKey = `${activeItem.id}:${fieldKey}`;
+    const currentFieldState = correctionStates[itemKey];
+    if (!currentFieldState?.suggestion) return;
+
+    const isStem = fieldKey === "stem";
+    const optionLabel = isStem
+      ? null
+      : (fieldKey.replace("option:", "") as "A" | "B" | "C" | "D" | "E");
+
+    const originalTargetText = isStem
+      ? activeItem.ta.stem
+      : activeItem.ta.options.find((o) => o.label === optionLabel)?.text || "";
+
+    if (isStem) {
+      dispatch({
+        type: "UPDATE_STEM",
+        payload: { id: activeItem.id, lang: "ta", text: suggestedText },
+      });
+    } else if (optionLabel) {
+      dispatch({
+        type: "UPDATE_OPTION",
+        payload: { id: activeItem.id, lang: "ta", label: optionLabel, text: suggestedText },
+      });
+    }
+
+    setCorrectionStates((prev) => ({
+      ...prev,
+      [itemKey]: {
+        ...currentFieldState,
+        isLoading: false,
+        error: null,
+        appliedOriginalText: originalTargetText,
+        appliedSuggestedText: suggestedText,
+      },
+    }));
+  };
+
+  const handleUndoCorrection = (fieldKey: string) => {
+    const itemKey = `${activeItem.id}:${fieldKey}`;
+    const currentFieldState = correctionStates[itemKey];
+    if (!currentFieldState?.appliedOriginalText) return;
+
+    const isStem = fieldKey === "stem";
+    const optionLabel = isStem
+      ? null
+      : (fieldKey.replace("option:", "") as "A" | "B" | "C" | "D" | "E");
+
+    const currentText = isStem
+      ? activeItem.ta.stem
+      : activeItem.ta.options.find((o) => o.label === optionLabel)?.text || "";
+
+    if (
+      currentFieldState.appliedSuggestedText &&
+      currentText !== currentFieldState.appliedSuggestedText
+    ) {
+      setCorrectionStates((prev) => ({
+        ...prev,
+        [itemKey]: {
+          ...currentFieldState,
+          error: "Cannot undo: field was edited after applying suggestion.",
+        },
+      }));
+      return;
+    }
+
+    if (isStem) {
+      dispatch({
+        type: "UPDATE_STEM",
+        payload: { id: activeItem.id, lang: "ta", text: currentFieldState.appliedOriginalText },
+      });
+    } else if (optionLabel) {
+      dispatch({
+        type: "UPDATE_OPTION",
+        payload: { id: activeItem.id, lang: "ta", label: optionLabel, text: currentFieldState.appliedOriginalText },
+      });
+    }
+
+    setCorrectionStates((prev) => ({
+      ...prev,
+      [itemKey]: {
+        ...currentFieldState,
+        appliedOriginalText: null,
+        appliedSuggestedText: undefined,
+        error: null,
+      },
+    }));
+  };
+
+  const handleRejectCorrection = (fieldKey: string) => {
+    const itemKey = `${activeItem.id}:${fieldKey}`;
+    setCorrectionStates((prev) => {
+      const next = { ...prev };
+      delete next[itemKey];
+      return next;
+    });
+  };
+
+  const handleCloseCorrection = (fieldKey: string) => {
+    const itemKey = `${activeItem.id}:${fieldKey}`;
+    setCorrectionStates((prev) => {
+      const next = { ...prev };
+      delete next[itemKey];
+      return next;
+    });
+  };
+
   // Check if current questions have any custom content or analysis to guard CSV replacement
   const hasExistingWork =
     state.analysisResponse !== null ||
@@ -211,255 +484,248 @@ export const Workbench: React.FC = () => {
     Boolean(state.items[0]?.en.stem && state.items[0].en.stem.trim().length > 0);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* Top Header */}
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b-2 border-black">
-        <div>
-          <div className="flex items-center gap-3">
+    <div className="space-y-3.5">
+      {/* 1. Header & Brand Identity (< 64px) */}
+      <header className="h-14 sm:h-15 flex items-center justify-between gap-3 px-3 sm:px-4 bg-white border-[1.5px] border-slate-900 rounded-[6px]">
+        {/* Brand Lockup */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <svg
-              viewBox="0 0 132 118"
-              className="w-8 h-7 sm:w-9 sm:h-8 shrink-0"
+              viewBox="0 0 132 88"
+              className="w-7 h-5 sm:w-8 sm:h-5.5 shrink-0"
               fill="none"
               aria-label="MozhiMatch Logo"
               role="img"
             >
-              <polygon points="0,32 36,70 36,118 0,118" fill="#2154F4" />
-              <polygon points="96,70 132,32 132,118 96,118" fill="#2154F4" />
               <polygon points="0,0 28,0 58,32 38,58 0,16" fill="#2154F4" />
               <polygon points="104,0 132,0 132,16 66,88 46,66" fill="#2154F4" />
             </svg>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              {t("app.name")}
-            </h1>
-            <span className="font-mono text-xs uppercase px-2 py-0.5 bg-black text-white font-bold">
+            <span className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+              MozhiMatch
+            </span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-2 pl-2 border-l border-slate-200">
+            <span className="text-xs text-slate-500 font-medium">
+              Bilingual MCQ Preflight
+            </span>
+            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] bg-[#EEF3FF] text-[#1435AD] border border-blue-200 uppercase tracking-tight">
               BATCH REVIEW
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 mt-1">{t("app.tagline")}</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Top Right Utilities */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
           <button
             type="button"
             onClick={() => setShowHelpModal(true)}
-            className="neobrutal-btn px-3 py-2 text-xs flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px]"
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-[6px] min-h-[36px] min-w-[36px] px-2.5 py-1.5 transition-colors flex items-center justify-center gap-1.5"
             title={t("app.help")}
           >
-            <Info className="w-4 h-4" />
+            <Info className="w-4 h-4 text-slate-500" />
             <span className="hidden sm:inline">{t("app.help")}</span>
           </button>
           <LocaleControl />
         </div>
       </header>
 
-      {/* Toolbar / Action Controls Bar */}
-      <div className="paper-panel p-4 space-y-4 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Example Loader & CSV Import Button */}
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs font-bold text-gray-700">
-              {t("editor.loadExample")}:
-            </label>
-            <select
-              onChange={(e) => handleLoadExample(e.target.value)}
-              defaultValue="DEV_NEGATION"
-              className="px-2.5 py-2 text-xs border-2 border-black font-semibold bg-[#FFFDF5] min-h-[44px] max-w-[200px] sm:max-w-xs"
-            >
-              <option value="DEV_NEGATION">DEV_NEGATION (Negation dropped in Tamil)</option>
-              <option value="DEV_VERB">DEV_VERB (Verb direction mismatch)</option>
-              <option value="DEV_CLEAN">DEV_CLEAN (Clean math control)</option>
-              <option value="DEV_UNCERTAIN">DEV_UNCERTAIN (Transliteration ambiguous)</option>
-              <option value="DEV_STRUCTURE">DEV_STRUCTURE (Option count mismatch)</option>
-            </select>
+      {/* 2. Compact Single-Row Utility Bar (Max ~56px) */}
+      <div className="bg-white border-[1.5px] border-slate-900 rounded-[6px] px-3 py-1.5 flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5 shadow-sm min-h-[50px]">
+        {/* Left: Example Loader */}
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
+            {t("editor.loadExample")}:
+          </label>
+          <select
+            onChange={(e) => handleLoadExample(e.target.value)}
+            defaultValue="DEV_NEGATION"
+            className="h-8 px-2 text-xs font-medium text-slate-900 border border-slate-300 rounded-[6px] bg-white focus:border-[#2154F4] focus:ring-1 focus:ring-[#2154F4] transition-colors max-w-[190px] sm:max-w-xs"
+          >
+            <option value="DEV_NEGATION">DEV_NEGATION (Negation dropped)</option>
+            <option value="DEV_VERB">DEV_VERB (Verb mismatch)</option>
+            <option value="DEV_CLEAN">DEV_CLEAN (Clean math control)</option>
+            <option value="DEV_UNCERTAIN">DEV_UNCERTAIN (Ambiguous)</option>
+            <option value="DEV_STRUCTURE">DEV_STRUCTURE (Count mismatch)</option>
+          </select>
+        </div>
 
+        {/* Center: Mode Segmented Control + Operator Trigger */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-slate-100 border border-slate-200 rounded-[6px] p-0.5">
             <button
               type="button"
-              onClick={() => setShowImportModal(true)}
-              className="neobrutal-btn text-xs px-3.5 py-2 flex items-center gap-1.5 min-h-[44px] font-bold bg-[#FFFDF5]"
-              title="Import a batch of paired questions via CSV"
+              onClick={() => dispatch({ type: "SET_MODE", payload: "rules" })}
+              className={`px-3 py-1.5 text-xs font-bold rounded-[4px] min-h-[36px] transition-all flex items-center justify-center ${
+                state.mode === "rules"
+                  ? "bg-white text-slate-900 shadow-sm font-extrabold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              <FileSpreadsheet className="w-4 h-4 text-[#2154F4]" />
-              {t("actions.importCsv")}
+              {locale === "ta" ? "அமைப்புக் கட்டுப்பாடுகள்" : "Structure rules only"}
+            </button>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: "SET_MODE", payload: "ai" })}
+              className={`px-3 py-1.5 text-xs font-bold rounded-[4px] min-h-[36px] transition-all flex items-center justify-center ${
+                state.mode === "ai"
+                  ? "bg-[#2154F4] text-white shadow-sm font-extrabold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {locale === "ta" ? "பொருள்சார் AI ஆய்வு" : "Semantic AI Review"}
             </button>
           </div>
 
-          {/* Mode Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-700">{t("app.mode")}:</span>
-            <div className="flex border-2 border-black">
-              <button
-                type="button"
-                onClick={() => dispatch({ type: "SET_MODE", payload: "rules" })}
-                className={`px-3 py-2 text-xs font-bold transition-all min-h-[44px] ${
-                  state.mode === "rules"
-                    ? "bg-[#FFE066] text-black font-extrabold"
-                    : "bg-white text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                {t("actions.rules")} (Zero-Paid)
-              </button>
-              <button
-                type="button"
-                onClick={() => dispatch({ type: "SET_MODE", payload: "ai" })}
-                className={`px-3 py-2 text-xs font-bold transition-all border-l-2 border-black min-h-[44px] ${
-                  state.mode === "ai"
-                    ? "bg-[#2154F4] text-white font-extrabold"
-                    : "bg-white text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Semantic AI Review
-              </button>
-            </div>
-          </div>
-
-          {/* Operator Demo Code Toggle */}
+          {/* Operator Demo Code Trigger */}
           <button
             type="button"
             onClick={() => setShowCodeInput(!showCodeInput)}
-            className="text-xs text-gray-600 underline flex items-center gap-1 hover:text-black min-h-[44px] py-2 px-1"
+            className={`min-h-[36px] min-w-[36px] p-2 rounded-[6px] flex items-center justify-center transition-colors border ${
+              showCodeInput || state.demoCode
+                ? "bg-blue-50 text-[#2154F4] border-blue-200"
+                : "text-slate-500 hover:text-slate-800 border-transparent hover:bg-slate-100"
+            }`}
+            title={t("privacy.code")}
           >
-            <KeyRound className="w-3.5 h-3.5" />
-            {t("privacy.code")}
+            <KeyRound className="w-4 h-4" />
+          </button>
+
+          {/* AI Consent Checkbox (inline when AI mode active) */}
+          {state.mode === "ai" && (
+            <div className="flex items-center gap-1.5 pl-1 text-xs">
+              <input
+                type="checkbox"
+                id="ai-consent"
+                checked={state.consent}
+                onChange={(e) =>
+                  dispatch({ type: "SET_CONSENT", payload: e.target.checked })
+                }
+                className="w-3.5 h-3.5 rounded border-slate-300 text-[#2154F4] focus:ring-[#2154F4]"
+              />
+              <label htmlFor="ai-consent" className="font-semibold text-slate-700 cursor-pointer text-[11px]">
+                {t("privacy.consent")}
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Primary Run CTA & Secondary Utilities */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Primary Run CTA */}
+          {state.isAnalyzing ? (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="h-8.5 px-3.5 text-xs font-bold bg-[#FEF2F2] text-[#DC2626] border border-red-300 rounded-[6px] hover:bg-red-100 flex items-center gap-1.5 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>{t("actions.cancel")}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleRunAnalysis}
+              className="neobrutal-btn neobrutal-btn-primary h-8.5 px-4 text-xs font-bold bg-[#2154F4] hover:bg-[#1D4ED8] text-white rounded-[6px] border border-slate-900 shadow-[2px_2px_0_#0F172A] flex items-center gap-1.5 transition-all"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>{state.mode === "ai" ? t("actions.analyze") : t("actions.rules")}</span>
+            </button>
+          )}
+
+          {state.isAnalyzing && (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2154F4]" />
+              <span>{t("status.checking")}</span>
+            </span>
+          )}
+
+          {/* Download CSV Report */}
+          <div className="flex items-center border border-slate-300 rounded-[6px] bg-white overflow-hidden">
+            <button
+              type="button"
+              onClick={() => handleDownloadCsv("all")}
+              className="h-8.5 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
+              title="Download full findings as CSV"
+            >
+              <Download className="w-3.5 h-3.5 text-[#2154F4]" />
+              <span>{t("actions.downloadCsv")}</span>
+            </button>
+            {activeFilter !== "all" && (
+              <button
+                type="button"
+                onClick={() => handleDownloadCsv("filtered")}
+                className="h-8.5 px-2 text-[10px] border-l border-slate-200 font-semibold text-slate-600 hover:bg-blue-50 transition-colors"
+                title="Download filtered only"
+              >
+                Filtered
+              </button>
+            )}
+          </div>
+
+          {/* Copy Issue List */}
+          <button
+            type="button"
+            onClick={handleCopySummary}
+            className="h-8.5 px-2.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-[6px] flex items-center gap-1.5 transition-colors"
+            title={t("actions.copy")}
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700 font-bold">{t("actions.copied")}</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-slate-500" />
+                <span>{t("actions.copy")}</span>
+              </>
+            )}
+          </button>
+
+          {/* Reset All */}
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            className="h-8.5 px-2 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-300 rounded-[6px] flex items-center justify-center transition-colors"
+            title={t("actions.reset")}
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
-
-        {/* Collapsible Operator Code Row */}
-        {showCodeInput && (
-          <div className="p-3 bg-[#FFFDF5] border-2 border-dashed border-black flex flex-wrap items-center gap-3">
-            <label className="text-xs font-bold">{t("privacy.code")}:</label>
-            <input
-              type="password"
-              value={state.demoCode}
-              onChange={(e) =>
-                dispatch({ type: "SET_DEMO_CODE", payload: e.target.value })
-              }
-              placeholder="Enter private operator code..."
-              className="p-1.5 text-xs border-2 border-black font-mono w-full max-w-xs"
-            />
-            <span className="text-[11px] text-gray-500">{t("privacy.codeHelp")}</span>
-          </div>
-        )}
-
-        {/* AI Consent & Source Scope Checkbox */}
-        {state.mode === "ai" && (
-          <div className="flex items-center gap-2 pt-2 border-t text-xs">
-            <input
-              type="checkbox"
-              id="ai-consent"
-              checked={state.consent}
-              onChange={(e) =>
-                dispatch({ type: "SET_CONSENT", payload: e.target.checked })
-              }
-              className="w-4 h-4 rounded-none border-2 border-black text-[#2154F4] focus:ring-0"
-            />
-            <label htmlFor="ai-consent" className="font-semibold text-gray-800 cursor-pointer">
-              {t("privacy.consent")} ({t("privacy.cloud")})
-            </label>
-          </div>
-        )}
-
-        {/* Action Buttons Row */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t-2 border-black">
-          <div className="flex items-center gap-3">
-            {state.isAnalyzing ? (
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="neobrutal-btn bg-[#FFE0DB] text-[#8A241A] text-sm px-5 py-2.5 flex items-center gap-2 min-h-[44px]"
-              >
-                <X className="w-4 h-4" />
-                {t("actions.cancel")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleRunAnalysis}
-                className="neobrutal-btn neobrutal-btn-primary text-sm px-6 py-2.5 flex items-center gap-2 min-h-[44px]"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                {state.mode === "ai" ? t("actions.analyze") : t("actions.rules")}
-              </button>
-            )}
-
-            {state.isAnalyzing && (
-              <span className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-                <Loader2 className="w-4 h-4 animate-spin text-[#2154F4]" />
-                {t("status.checking")}
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Download CSV Report */}
-            <div className="flex items-center border-2 border-black bg-white">
-              <button
-                type="button"
-                onClick={() => handleDownloadCsv("all")}
-                className="text-xs px-3 py-2 flex items-center gap-1.5 font-bold hover:bg-gray-100 min-h-[44px]"
-                title="Download full batch findings as CSV"
-              >
-                <Download className="w-3.5 h-3.5 text-[#2154F4]" />
-                {t("actions.downloadCsv")}
-              </button>
-              {activeFilter !== "all" && (
-                <button
-                  type="button"
-                  onClick={() => handleDownloadCsv("filtered")}
-                  className="text-[11px] px-2 py-2 border-l border-black font-semibold text-gray-700 hover:bg-blue-50 min-h-[44px]"
-                  title="Download only questions matching active filter"
-                >
-                  (Filtered Only)
-                </button>
-              )}
-            </div>
-
-            {/* Copy Issue List */}
-            <button
-              type="button"
-              onClick={handleCopySummary}
-              className="neobrutal-btn text-xs px-3.5 py-2 flex items-center gap-1.5 min-h-[44px]"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-green-600" />
-                  {t("actions.copied")}
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  {t("actions.copy")}
-                </>
-              )}
-            </button>
-
-            {/* Reset All */}
-            <button
-              type="button"
-              onClick={() => setShowResetConfirm(true)}
-              className="neobrutal-btn text-xs px-3 py-2 flex items-center justify-center gap-1 text-gray-700 hover:text-black min-h-[44px] min-w-[44px]"
-              title={t("actions.reset")}
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              {t("actions.reset")}
-            </button>
-          </div>
-        </div>
-
-        {/* Action Error Banner */}
-        {state.error && (
-          <div className="p-3 bg-[#FFE0DB] text-[#8A241A] border-2 border-black text-xs font-semibold flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 shrink-0" />
-            <span>
-              {t(state.error.messageKey)} {state.error.code ? `(${state.error.code})` : ""}
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* Main Workbench Layout: Left Editor & Queue, Right Evidence Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Review Queue (5 cols on lg) & Pair Editor */}
-        <div className="lg:col-span-7 space-y-6">
+      {/* Collapsible Operator Code Row */}
+      {showCodeInput && (
+        <div className="bg-white border border-dashed border-slate-300 rounded-[6px] p-2.5 flex flex-wrap items-center gap-3">
+          <label className="text-xs font-bold text-slate-700">{t("privacy.code")}:</label>
+          <input
+            type="password"
+            value={state.demoCode}
+            onChange={(e) =>
+              dispatch({ type: "SET_DEMO_CODE", payload: e.target.value })
+            }
+            placeholder="Enter private operator code..."
+            className="h-8 px-2.5 text-xs border border-slate-300 rounded-[4px] font-mono w-full max-w-xs focus:border-[#2154F4] focus:ring-1 focus:ring-[#2154F4]"
+          />
+          <span className="text-[11px] text-slate-500">{t("privacy.codeHelp")}</span>
+        </div>
+      )}
+
+      {/* Action Error Banner */}
+      {state.error && (
+        <div className="p-3 bg-[#FEF2F2] text-[#DC2626] border border-red-200 rounded-[6px] text-xs font-semibold flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          <span>
+            {t(state.error.messageKey)} {state.error.code ? `(${state.error.code})` : ""}
+          </span>
+        </div>
+      )}
+
+      {/* 3. 3-Pane Desktop Layout (Above the Fold) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] xl:grid-cols-[260px_1fr_350px] 2xl:grid-cols-[270px_1fr_370px] gap-3.5 items-start">
+        {/* Left Rail: Question Batch Sidebar */}
+        <aside className="w-full">
           <ReviewQueue
             items={state.items}
             activeItemId={state.activeItemId}
@@ -473,7 +739,10 @@ export const Workbench: React.FC = () => {
             onImportClick={() => setShowImportModal(true)}
             t={t}
           />
+        </aside>
 
+        {/* Center Canvas: Paired Questions Editor */}
+        <section className="w-full min-w-0">
           <PairEditor
             item={activeItem}
             onUpdateStem={(lang, text) =>
@@ -499,13 +768,13 @@ export const Workbench: React.FC = () => {
             }
             t={t}
           />
-        </div>
+        </section>
 
-        {/* Right Column: Evidence & Decision Panel (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* Right Rail: Evidence & Findings Panel */}
+        <aside className="w-full lg:col-span-2 xl:col-span-1">
           <EvidencePanel
             item={activeItem}
-            analysisItem={analysisItem}
+            analysisItem={panelAnalysisItem}
             decisions={state.decisions[activeItem.id] || {}}
             onSetDecision={(fieldKey, decision) =>
               dispatch({
@@ -514,8 +783,21 @@ export const Workbench: React.FC = () => {
               })
             }
             t={t}
+            isStale={isStale}
+            correctionState={Object.keys(correctionStates)
+              .filter((k) => k.startsWith(`${activeItem.id}:`))
+              .reduce((acc, k) => {
+                const fieldKey = k.replace(`${activeItem.id}:`, "");
+                acc[fieldKey] = correctionStates[k];
+                return acc;
+              }, {} as Record<string, CorrectionFieldState>)}
+            onSuggestCorrection={handleSuggestCorrection}
+            onApplyCorrection={handleApplyCorrection}
+            onUndoCorrection={handleUndoCorrection}
+            onRejectCorrection={handleRejectCorrection}
+            onCloseCorrection={handleCloseCorrection}
           />
-        </div>
+        </aside>
       </div>
 
       {/* CSV Import Modal */}
@@ -523,6 +805,8 @@ export const Workbench: React.FC = () => {
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
         onImport={(importedItems) => {
+          setCorrectionStates({});
+          setCachedAnalysis(null);
           dispatch({ type: "SET_ITEMS", payload: importedItems });
         }}
         hasExistingWork={hasExistingWork}
@@ -531,25 +815,27 @@ export const Workbench: React.FC = () => {
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="paper-panel p-6 max-w-sm w-full space-y-4 bg-white">
-            <h3 className="font-bold text-lg">{t("actions.confirmReset")}</h3>
-            <p className="text-xs text-gray-600">{t("actions.resetDetail")}</p>
-            <div className="flex items-center justify-end gap-3 pt-2">
+        <div role="dialog" aria-modal="true" aria-labelledby="reset-modal-title" className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-[1.5px] border-slate-900 rounded-[6px] p-5 max-w-sm w-full space-y-3.5 shadow-xl">
+            <h3 id="reset-modal-title" className="font-bold text-base text-slate-900">{t("actions.confirmReset")}</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">{t("actions.resetDetail")}</p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setShowResetConfirm(false)}
-                className="neobrutal-btn text-xs px-4 py-2 min-h-[44px]"
+                className="h-8.5 px-3 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-[6px] transition-colors"
               >
                 {t("actions.cancel")}
               </button>
               <button
                 type="button"
                 onClick={() => {
+                  setCorrectionStates({});
+                  setCachedAnalysis(null);
                   dispatch({ type: "RESET_ALL" });
                   setShowResetConfirm(false);
                 }}
-                className="neobrutal-btn bg-[#FFE0DB] text-[#8A241A] font-bold text-xs px-4 py-2 min-h-[44px]"
+                className="h-8.5 px-3 text-xs font-bold bg-[#DC2626] hover:bg-red-700 text-white rounded-[6px] transition-colors"
               >
                 {t("actions.reset")}
               </button>
@@ -560,30 +846,30 @@ export const Workbench: React.FC = () => {
 
       {/* Selectable Fallback Export Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="paper-panel p-6 max-w-2xl w-full space-y-4 bg-white">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="font-bold text-base">{t("actions.manualCopy")}</h3>
+        <div role="dialog" aria-modal="true" aria-labelledby="export-modal-title" className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-[1.5px] border-slate-900 rounded-[6px] p-5 max-w-2xl w-full space-y-3.5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <h3 id="export-modal-title" className="font-bold text-sm text-slate-900">{t("actions.manualCopy")}</h3>
               <button
                 type="button"
                 onClick={() => setShowExportModal(false)}
-                className="p-1 hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-[4px] hover:bg-slate-100 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <textarea
               readOnly
               rows={12}
               value={formatReviewSummary(state.items, state.analysisResponse, state.decisions)}
-              className="w-full p-3 font-mono text-xs border-2 border-black bg-[#FFFDF5]"
+              className="w-full p-3 font-mono text-xs border border-slate-300 rounded-[6px] bg-slate-50 text-slate-800"
               onClick={(e) => (e.target as HTMLTextAreaElement).select()}
             />
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => setShowExportModal(false)}
-                className="neobrutal-btn text-xs px-4 py-2 min-h-[44px]"
+                className="h-8.5 px-3.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-[6px] transition-colors"
               >
                 Close
               </button>
@@ -594,55 +880,55 @@ export const Workbench: React.FC = () => {
 
       {/* How This Works Help Modal */}
       {showHelpModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="paper-panel p-6 max-w-lg w-full space-y-4 bg-white">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="font-bold text-base">{t("app.help")}</h3>
+        <div role="dialog" aria-modal="true" aria-labelledby="help-modal-title" className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-[1.5px] border-slate-900 rounded-[6px] p-5 max-w-lg w-full space-y-3.5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <h3 id="help-modal-title" className="font-bold text-sm text-slate-900">{t("app.help")}</h3>
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}
-                className="p-1 hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-[4px] hover:bg-slate-100 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-3 text-xs leading-relaxed text-gray-700">
+            <div className="space-y-2.5 text-xs leading-relaxed text-slate-600">
               <p>
-                <strong>MozhiMatch</strong> helps bilingual examination editors inspect practice
+                <strong className="text-slate-900">MozhiMatch</strong> helps bilingual examination editors inspect practice
                 questions in English and Tamil side-by-side.
               </p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>
-                  <strong>CSV Batch Import:</strong> Upload up to 10 questions at once via CSV with full
+                  <strong className="text-slate-800">CSV Batch Import:</strong> Upload up to 10 questions at once via CSV with full
                   Unicode Tamil support and live validation preview.
                 </li>
                 <li>
-                  <strong>Structural checks:</strong> Inspects option counts, labels, numeric
+                  <strong className="text-slate-800">Structural checks:</strong> Inspects option counts, labels, numeric
                   tokens, and units deterministically with zero paid API usage.
                 </li>
                 <li>
-                  <strong>Semantic checks:</strong> Analyzes meaning preservation, negation drops,
+                  <strong className="text-slate-800">Semantic checks:</strong> Analyzes meaning preservation, negation drops,
                   qualifiers, and answer position alignment using Google Gemini.
                 </li>
                 <li>
-                  <strong>Exact evidence:</strong> Quotes literal strings from the original
+                  <strong className="text-slate-800">Exact evidence:</strong> Quotes literal strings from the original
                   sources with character-level accuracy.
                 </li>
                 <li>
-                  <strong>Human decision:</strong> Mark each finding <em>Keep</em>, <em>Fix</em>, or{" "}
+                  <strong className="text-slate-800">Human decision:</strong> Mark each finding <em>Keep</em>, <em>Fix</em>, or{" "}
                   <em>Escalate</em>, and download a complete CSV report or copy the issue list.
                 </li>
               </ul>
-              <p className="text-gray-500 pt-2 border-t">
+              <p className="text-slate-400 pt-2 border-t border-slate-100 text-[11px]">
                 Privacy: Source text stays in browser memory unless cloud AI is explicitly
                 consented.
               </p>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-1">
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}
-                className="neobrutal-btn text-xs px-4 py-2 min-h-[44px]"
+                className="h-8.5 px-3.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-[6px] transition-colors"
               >
                 Got it
               </button>

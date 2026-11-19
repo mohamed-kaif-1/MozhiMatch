@@ -1,97 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --colors-paper: #FFFDF5;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-tamil: 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Surfaces & Canvas */
+  --colors-canvas: #F8FAFC;
   --colors-surface: #FFFFFF;
-  --colors-ink: #171717;
-  --colors-muted: #545454;
+  --colors-rail: #F8FAFC;
+  --colors-subtle: #F1F5F9;
+
+  /* Ink */
+  --colors-ink: #0F172A;
+  --colors-ink-secondary: #334155;
+  --colors-ink-muted: #475569;
+
+  /* Brand */
   --colors-primary: #2154F4;
-  --colors-primaryText: #FFFFFF;
-  --colors-support: #FFE066;
-  --colors-successBg: #D6F3DD;
-  --colors-successText: #18552C;
-  --colors-warningBg: #FFF0B3;
-  --colors-warningText: #654800;
-  --colors-dangerBg: #FFE0DB;
-  --colors-dangerText: #8A241A;
-  --colors-grid: rgba(23,23,23,0.06);
-  --border-width: 2px;
-  --border-color: #171717;
-  --border-radius: 0px;
-  --shadow-card: 4px 4px 0 #171717;
-  --shadow-button: 3px 3px 0 #171717;
-  --spacing-1: 4px;
-  --spacing-2: 8px;
-  --spacing-3: 12px;
-  --spacing-4: 16px;
-  --spacing-5: 20px;
-  --spacing-6: 24px;
-  --spacing-8: 32px;
-  --spacing-10: 40px;
-  --spacing-12: 48px;
-  --type-small: 14px;
-  --type-body: 16px;
-  --type-section: 20px;
-  --type-titleMobile: 28px;
-  --type-titleDesktop: 36px;
-  --type-tamilLineHeight: 1.7;
-  --type-englishLineHeight: 1.5;
-  --layout-maxWidth: 1280px;
-  --layout-gridMobile: 20px;
-  --layout-gridDesktop: 24px;
-  --layout-touchTarget: 44px;
-  --layout-focusWidth: 3px;
-  --motion-fast: 120ms;
-  --motion-normal: 180ms;
+  --colors-primary-hover: #1D4ED8;
+  --colors-primary-light: #EEF3FF;
+  --colors-primary-text: #FFFFFF;
+  --colors-primary-link: #1435AD;
+
+  /* Semantic Review Colors */
+  --colors-diff-text: #DC2626;
+  --colors-diff-bg: #FEF2F2;
+  --colors-diff-border: #FECACA;
+
+  --colors-review-text: #B45309;
+  --colors-review-bg: #FFFBEB;
+  --colors-review-border: #FDE68A;
+
+  --colors-clean-text: #047857;
+  --colors-clean-bg: #ECFDF5;
+  --colors-clean-border: #A7F3D0;
+
+  --colors-draft-text: #475569;
+  --colors-draft-bg: #F1F5F9;
+  --colors-draft-border: #E2E8F0;
+
+  /* Borders & Radius */
+  --border-structural: 1.5px solid #0F172A;
+  --border-divider: 1px solid #CBD5E1;
+  --radius-panel: 6px;
+  --radius-pill: 4px;
+
+  /* Shadows */
+  --shadow-neobrutal: 2px 2px 0 #0F172A;
+  --shadow-neobrutal-hover: 2.5px 2.5px 0 #0F172A;
+  --shadow-neobrutal-active: 1px 1px 0 #0F172A;
 }
 
 body {
-  background-color: var(--colors-paper);
+  background-color: var(--colors-canvas);
   color: var(--colors-ink);
-  font-family: var(--font-geist), sans-serif;
+  font-family: var(--font-sans);
   margin: 0;
   padding: 0;
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Bilingual Typography */
 .font-tamil {
-  font-family: var(--font-noto-tamil), "Noto Sans Tamil", sans-serif;
+  font-family: var(--font-tamil);
+  line-height: 1.72 !important;
 }
 
-.square-grid {
-  background-color: var(--colors-paper);
-  background-image: linear-gradient(var(--colors-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--colors-grid) 1px, transparent 1px);
-  background-size: var(--layout-gridDesktop) var(--layout-gridDesktop);
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
+/* Panels */
 .paper-panel {
   background: var(--colors-surface);
-  border: var(--border-width) solid var(--border-color);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-card);
+  border: var(--border-structural);
+  border-radius: var(--radius-panel);
 }
 
+.card-subtle {
+  background: var(--colors-surface);
+  border: var(--border-divider);
+  border-radius: var(--radius-panel);
+}
+
+/* Buttons */
 .neobrutal-btn {
   background: var(--colors-surface);
   color: var(--colors-ink);
-  border: var(--border-width) solid var(--border-color);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-button);
+  border: 1px solid #CBD5E1;
+  border-radius: var(--radius-panel);
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+  transition: all 120ms ease;
 }
 
 .neobrutal-btn:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 #171717;
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #94A3B8;
 }
 
 .neobrutal-btn:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 #171717;
+  transform: translate(1px, 1px);
 }
 
 .neobrutal-btn:disabled {
@@ -100,24 +116,55 @@ body {
   box-shadow: none;
 }
 
+/* Primary Neo-Brutalist CTA (Reserved Shadow) */
 .neobrutal-btn-primary {
-  background: var(--colors-primary);
-  color: var(--colors-primaryText);
+  background: var(--colors-primary) !important;
+  color: var(--colors-primary-text) !important;
+  border: 1.5px solid #0F172A !important;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-neobrutal) !important;
+  font-weight: 700;
 }
 
+.neobrutal-btn-primary:hover:not(:disabled) {
+  background: var(--colors-primary-hover) !important;
+  box-shadow: var(--shadow-neobrutal-hover) !important;
+  transform: translate(-0.5px, -0.5px);
+}
+
+.neobrutal-btn-primary:active:not(:disabled) {
+  transform: translate(1px, 1px) !important;
+  box-shadow: var(--shadow-neobrutal-active) !important;
+}
+
+/* Focus outline */
 :focus-visible {
-  outline: var(--layout-focusWidth) solid var(--colors-primary);
-  outline-offset: 3px;
+  outline: 2px solid var(--colors-primary);
+  outline-offset: 2px;
 }
 
 :lang(ta) {
-  line-height: var(--type-tamilLineHeight);
+  font-family: var(--font-tamil);
+  line-height: 1.72;
 }
 
-@media (max-width: 639px) {
-  .square-grid {
-    background-size: var(--layout-gridMobile) var(--layout-gridMobile);
-  }
+/* Smooth custom scrollbars for rails */
+.rail-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.rail-scroll::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+.rail-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+.rail-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -129,4 +176,3 @@ body {
     scroll-behavior: auto !important;
   }
 }
-

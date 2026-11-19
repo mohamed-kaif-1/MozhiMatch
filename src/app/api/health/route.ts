@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const aiKey = process.env.GEMINI_API_KEY;
   const aiMode = process.env.AI_MODE;

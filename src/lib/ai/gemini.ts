@@ -63,18 +63,36 @@ export async function callGeminiSemanticReview(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), APP_LIMITS.PROVIDER_TIMEOUT_MS);
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
+    let response: Response | null = null;
+    const maxRetries = 2;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+
+      if (response.ok) {
+        break;
+      }
+
+      // Retry on transient 429 rate limit or 503 service unavailable
+      if ((response.status === 429 || response.status === 503) && attempt < maxRetries) {
+        const delayMs = (attempt + 1) * 2000;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      break;
+    }
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       return {
         status: "unavailable",
         model,

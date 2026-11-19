@@ -12,6 +12,7 @@ import {
   Filter,
   X,
   Layers,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export type StatusFilter =
@@ -102,13 +103,13 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "meaning_changed":
-        return <XCircle className="w-4 h-4 text-[#8A241A] shrink-0" />;
+        return <XCircle className="w-3.5 h-3.5 text-[#DC2626] shrink-0" />;
       case "no_issue_found":
-        return <CheckCircle2 className="w-4 h-4 text-[#18552C] shrink-0" />;
+        return <CheckCircle2 className="w-3.5 h-3.5 text-[#047857] shrink-0" />;
       case "needs_review":
-        return <AlertTriangle className="w-4 h-4 text-[#654800] shrink-0" />;
+        return <AlertTriangle className="w-3.5 h-3.5 text-[#B45309] shrink-0" />;
       default:
-        return <FileQuestion className="w-4 h-4 text-gray-400 shrink-0" />;
+        return <FileQuestion className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
     }
   };
 
@@ -116,50 +117,61 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
     switch (status) {
       case "meaning_changed":
         return (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#FFE0DB] text-[#8A241A] border border-black uppercase">
-            DIFF
+          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[4px] bg-[#FEF2F2] text-[#DC2626] border border-red-200 uppercase tracking-tight">
+            CHANGED
           </span>
         );
       case "no_issue_found":
         return (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#D6F3DD] text-[#18552C] border border-black uppercase">
+          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[4px] bg-[#ECFDF5] text-[#047857] border border-emerald-200 uppercase tracking-tight">
             CLEAN
           </span>
         );
       case "needs_review":
         return (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#FFF0B3] text-[#654800] border border-black uppercase">
+          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[4px] bg-[#FFFBEB] text-[#B45309] border border-amber-200 uppercase tracking-tight">
             REVIEW
           </span>
         );
       default:
         return (
-          <span className="text-[10px] font-mono px-1.5 py-0.5 bg-gray-100 text-gray-600 border border-black uppercase">
-            READY
+          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-[4px] bg-[#F1F5F9] text-[#475569] border border-slate-200 uppercase tracking-tight">
+            DRAFT
           </span>
         );
     }
   };
 
   return (
-    <div className="paper-panel p-4 space-y-4 bg-white">
+    <div className="bg-[#F8FAFC] border-[1.5px] border-slate-900 rounded-[6px] p-3 sm:p-3.5 space-y-3">
       {/* Queue Header with Total & Import/Add buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-black pb-3">
-        <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-[#2154F4]" />
-          <h3 className="font-extrabold text-sm sm:text-base tracking-tight">
-            Question Batch ({items.length}/10)
-          </h3>
+      <div className="space-y-2 border-b border-slate-200 pb-2.5">
+        {/* Row 1: Title and Question Counter */}
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Layers className="w-4 h-4 text-[#2154F4] shrink-0" />
+            <h3 className="font-bold text-xs sm:text-sm tracking-tight text-slate-900 truncate">
+              Question Batch
+            </h3>
+          </div>
+          <span className="font-mono text-xs text-slate-500 font-semibold shrink-0">
+            ({items.length}/10)
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Row 2: Action Buttons in 2-column Grid */}
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
           {onImportClick && (
             <button
               type="button"
               onClick={onImportClick}
-              className="neobrutal-btn text-xs px-3 py-2 flex items-center justify-center gap-1 min-h-[44px]"
+              className={`h-8 px-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-[6px] flex items-center justify-center gap-1.5 transition-colors min-w-0 ${
+                !canAddItem ? "col-span-2" : ""
+              }`}
+              title="Import CSV"
             >
-              Import CSV
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#2154F4] shrink-0" />
+              <span className="truncate">Import CSV</span>
             </button>
           )}
 
@@ -167,128 +179,140 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
             <button
               type="button"
               onClick={onAddItem}
-              className="neobrutal-btn neobrutal-btn-primary text-xs px-3 py-2 flex items-center justify-center gap-1 min-h-[44px]"
+              className={`h-8 px-2 text-xs font-bold text-white bg-[#2154F4] hover:bg-[#1D4ED8] border border-slate-900 rounded-[6px] shadow-[1.5px_1.5px_0_#0F172A] flex items-center justify-center gap-1.5 transition-all min-w-0 ${
+                !onImportClick ? "col-span-2" : ""
+              }`}
               title={t("editor.addItem")}
             >
-              <Plus className="w-3.5 h-3.5" />
-              Add
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Add</span>
             </button>
           )}
         </div>
       </div>
 
       {/* Batch Summary Counters & Filter Bar */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1">
-            <Filter className="w-3 h-3" /> Filter by Status
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+            <Filter className="w-3 h-3 text-slate-400" /> Filter status
           </span>
           {filter !== "all" && (
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className="text-[11px] text-[#2154F4] font-bold hover:underline flex items-center gap-0.5"
+              className="text-[10px] text-[#1435AD] font-bold hover:underline flex items-center gap-0.5"
             >
-              <X className="w-3 h-3" /> Clear Filter
+              <X className="w-2.5 h-2.5" /> Clear
             </button>
           )}
         </div>
 
-        {/* Status Filter Buttons Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs font-semibold">
+        {/* Compact Status Filter Strip */}
+        <div className="grid grid-cols-5 gap-1 text-center">
           {/* All */}
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`p-2 border-2 border-black flex flex-col items-center justify-center min-h-[44px] transition-all ${
-              filter === "all" ? "bg-black text-white font-extrabold" : "bg-white hover:bg-gray-100"
+            className={`py-1 px-1 rounded-[4px] border text-[10px] transition-all flex flex-col items-center justify-center ${
+              filter === "all"
+                ? "bg-slate-900 text-white border-slate-900 font-bold"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 font-medium"
             }`}
           >
-            <span className="text-[10px] uppercase font-mono">All</span>
-            <span className="text-sm font-bold">{counts.total}</span>
+            <span className="uppercase text-[9px] tracking-tight">ALL</span>
+            <span className="font-mono text-xs font-bold leading-none mt-0.5">{counts.total}</span>
           </button>
 
-          {/* Meaning Changed */}
+          {/* Changed */}
           <button
             type="button"
             onClick={() => setFilter("meaning_changed")}
-            className={`p-2 border-2 border-black flex flex-col items-center justify-center min-h-[44px] transition-all ${
+            className={`py-1 px-1 rounded-[4px] border text-[10px] transition-all flex flex-col items-center justify-center ${
               filter === "meaning_changed"
-                ? "bg-[#FFE0DB] text-[#8A241A] font-extrabold ring-2 ring-black"
-                : "bg-white hover:bg-red-50 text-gray-700"
+                ? "bg-[#FEF2F2] text-[#DC2626] border-red-300 font-bold"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-red-50/50 font-medium"
             }`}
           >
-            <span className="text-[10px] uppercase font-mono">Changed</span>
-            <span className="text-sm font-bold text-[#8A241A]">{counts.meaning_changed}</span>
+            <span className="uppercase text-[9px] tracking-tight">DIFF</span>
+            <span className="font-mono text-xs font-bold leading-none mt-0.5 text-[#DC2626]">
+              {counts.meaning_changed}
+            </span>
           </button>
 
-          {/* Needs Review */}
+          {/* Review */}
           <button
             type="button"
             onClick={() => setFilter("needs_review")}
-            className={`p-2 border-2 border-black flex flex-col items-center justify-center min-h-[44px] transition-all ${
+            className={`py-1 px-1 rounded-[4px] border text-[10px] transition-all flex flex-col items-center justify-center ${
               filter === "needs_review"
-                ? "bg-[#FFF0B3] text-[#654800] font-extrabold ring-2 ring-black"
-                : "bg-white hover:bg-amber-50 text-gray-700"
+                ? "bg-[#FFFBEB] text-[#B45309] border-amber-300 font-bold"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-amber-50/50 font-medium"
             }`}
           >
-            <span className="text-[10px] uppercase font-mono">Review</span>
-            <span className="text-sm font-bold text-[#654800]">{counts.needs_review}</span>
+            <span className="uppercase text-[9px] tracking-tight">REV</span>
+            <span className="font-mono text-xs font-bold leading-none mt-0.5 text-[#B45309]">
+              {counts.needs_review}
+            </span>
           </button>
 
-          {/* Clean / No Issue */}
+          {/* Clean */}
           <button
             type="button"
             onClick={() => setFilter("no_issue_found")}
-            className={`p-2 border-2 border-black flex flex-col items-center justify-center min-h-[44px] transition-all ${
+            className={`py-1 px-1 rounded-[4px] border text-[10px] transition-all flex flex-col items-center justify-center ${
               filter === "no_issue_found"
-                ? "bg-[#D6F3DD] text-[#18552C] font-extrabold ring-2 ring-black"
-                : "bg-white hover:bg-green-50 text-gray-700"
+                ? "bg-[#ECFDF5] text-[#047857] border-emerald-300 font-bold"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-emerald-50/50 font-medium"
             }`}
           >
-            <span className="text-[10px] uppercase font-mono">Clean</span>
-            <span className="text-sm font-bold text-[#18552C]">{counts.no_issue_found}</span>
+            <span className="uppercase text-[9px] tracking-tight">CLN</span>
+            <span className="font-mono text-xs font-bold leading-none mt-0.5 text-[#047857]">
+              {counts.no_issue_found}
+            </span>
           </button>
 
-          {/* Unanalyzed / Draft */}
+          {/* Draft */}
           <button
             type="button"
             onClick={() => setFilter("editing")}
-            className={`p-2 border-2 border-black flex flex-col items-center justify-center min-h-[44px] col-span-2 sm:col-span-1 transition-all ${
+            className={`py-1 px-1 rounded-[4px] border text-[10px] transition-all flex flex-col items-center justify-center ${
               filter === "editing"
-                ? "bg-gray-200 text-black font-extrabold ring-2 ring-black"
-                : "bg-white hover:bg-gray-50 text-gray-700"
+                ? "bg-slate-200 text-slate-900 border-slate-300 font-bold"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 font-medium"
             }`}
           >
-            <span className="text-[10px] uppercase font-mono">Draft</span>
-            <span className="text-sm font-bold">{counts.editing}</span>
+            <span className="uppercase text-[9px] tracking-tight">DRF</span>
+            <span className="font-mono text-xs font-bold leading-none mt-0.5 text-slate-700">
+              {counts.editing}
+            </span>
           </button>
         </div>
 
-        {/* Separate Structural Findings Advisory Indicator */}
+        {/* Structural Differences Notice */}
         {counts.structuralFlags > 0 && (
-          <div className="flex items-center gap-1.5 text-[11px] text-[#654800] font-medium bg-[#FFFDF5] p-2 border border-black">
+          <div className="flex items-center gap-1.5 text-[11px] text-[#B45309] bg-[#FFFBEB] p-2 rounded-[4px] border border-amber-200">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            <span>
-              <strong>{counts.structuralFlags}</strong> question{counts.structuralFlags > 1 ? "s" : ""} have structural differences (option counts, numerals, or units).
+            <span className="leading-tight">
+              <strong>{counts.structuralFlags}</strong> question{counts.structuralFlags > 1 ? "s" : ""} have structural differences.
             </span>
           </div>
         )}
       </div>
 
-      {/* Filtered Question List */}
-      <div className="flex flex-col gap-2 pt-1">
+      {/* Stacked Question List */}
+      <div className="flex flex-col gap-1.5 max-h-[calc(100vh-260px)] overflow-y-auto rail-scroll pr-0.5">
         {filteredItems.length === 0 ? (
-          <div className="p-6 border-2 border-dashed border-gray-400 text-center space-y-2 bg-gray-50">
-            <p className="text-xs text-gray-600 font-medium">
-              No questions match the current filter (<strong>{filter}</strong>).
+          <div className="p-4 border border-dashed border-slate-300 rounded-[6px] text-center space-y-1.5 bg-white">
+            <p className="text-xs text-slate-500 font-medium">
+              No questions match ({filter}).
             </p>
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className="neobrutal-btn text-xs px-3 py-1.5 min-h-[44px]"
+              className="text-xs font-bold text-[#1435AD] hover:underline"
             >
-              Show All ({items.length})
+              Show all ({items.length})
             </button>
           </div>
         ) : (
@@ -303,22 +327,26 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
               <div
                 key={item.id}
                 onClick={() => onSelectItem(item.id)}
-                className={`p-3 border-2 border-black cursor-pointer transition-all flex items-center justify-between min-h-[44px] ${
+                className={`p-2.5 rounded-[6px] cursor-pointer transition-all flex items-center justify-between ${
                   isActive
-                    ? "bg-[#FFE066] shadow-[3px_3px_0_#000] font-bold"
-                    : "bg-white hover:bg-gray-50"
+                    ? "bg-[#EEF3FF] border border-blue-200 border-l-[3.5px] border-l-[#2154F4] text-slate-900 shadow-sm"
+                    : "bg-white hover:bg-slate-50 border border-slate-200 text-slate-700"
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                   {getStatusIcon(status)}
-                  <span className="font-mono text-sm font-bold truncate">{item.id}</span>
-                  {getStatusBadge(status)}
+                  <div className="flex flex-col">
+                    <span className="font-mono text-xs font-bold text-slate-900 truncate">
+                      {item.id}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      {decisionCount}/{totalFields} decided
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono text-gray-600">
-                    {decisionCount}/{totalFields} decided
-                  </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {getStatusBadge(status)}
                   {canRemoveItem && (
                     <button
                       type="button"
@@ -326,7 +354,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
                         e.stopPropagation();
                         onRemoveItem(item.id);
                       }}
-                      className="p-2 text-gray-400 hover:text-red-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      className="p-1 text-slate-400 hover:text-red-600 rounded-[4px] hover:bg-red-50 transition-colors"
                       title={t("editor.removeItem")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

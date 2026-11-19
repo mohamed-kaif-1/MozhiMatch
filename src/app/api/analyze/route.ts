@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema } from "../../../lib/contracts/schemas";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 import {
   AnalyzeResponse,
   AnalyzeResponseItem,
