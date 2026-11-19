@@ -12,6 +12,7 @@ export interface ReviewState {
   isAnalyzing: boolean;
   currentRequestId: string | null;
   analysisResponse: AnalyzeResponse | null;
+  analyzedAt: string | null;
   error: { messageKey: string; code?: string } | null;
   decisions: Record<string, Record<string, ReviewDecisionType>>;
 }
@@ -31,7 +32,7 @@ export type ReviewAction =
   | { type: "SET_CONSENT"; payload: boolean }
   | { type: "SET_DEMO_CODE"; payload: string }
   | { type: "START_ANALYSIS"; payload: { requestId: string } }
-  | { type: "ANALYSIS_SUCCESS"; payload: { response: AnalyzeResponse } }
+  | { type: "ANALYSIS_SUCCESS"; payload: { response: AnalyzeResponse; analyzedAt?: string } }
   | { type: "ANALYSIS_ERROR"; payload: { messageKey: string; code?: string } }
   | { type: "SET_DECISION"; payload: { itemId: string; fieldKey: string; decision: ReviewDecisionType } }
   | { type: "RESET_ALL" };
@@ -69,6 +70,7 @@ export const initialReviewState: ReviewState = {
   isAnalyzing: false,
   currentRequestId: null,
   analysisResponse: null,
+  analyzedAt: null,
   error: null,
   decisions: {},
 };
@@ -84,6 +86,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         activeItemId: items[0]?.id || "Q1",
         revision: state.revision + 1,
         analysisResponse: null,
+        analyzedAt: null,
         error: null,
         decisions: {},
         isAnalyzing: false,
@@ -120,6 +123,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         activeItemId: nextId,
         revision: state.revision + 1,
         analysisResponse: null,
+        analyzedAt: null,
         error: null,
       };
     }
@@ -133,6 +137,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         activeItemId: state.activeItemId === action.payload.id ? filtered[0]?.id || "Q1" : state.activeItemId,
         revision: state.revision + 1,
         analysisResponse: null,
+        analyzedAt: null,
         error: null,
       };
     }
@@ -161,6 +166,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         items: updated,
         revision: state.revision + 1,
         analysisResponse: null,
+        analyzedAt: null,
         error: null,
       };
     }
@@ -186,6 +192,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         items: updated,
         revision: state.revision + 1,
         analysisResponse: null,
+        analyzedAt: null,
         error: null,
       };
     }
@@ -215,6 +222,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         items: updated,
         revision: state.revision + 1,
         analysisResponse: null,
+        analyzedAt: null,
         error: null,
       };
     }
@@ -241,6 +249,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         items: updated,
         revision: state.revision + 1,
         analysisResponse: null,
+        analyzedAt: null,
         error: null,
       };
     }
@@ -270,6 +279,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         ...state,
         isAnalyzing: false,
         analysisResponse: action.payload.response,
+        analyzedAt: action.payload.analyzedAt || new Date().toISOString(),
         error: null,
       };
 

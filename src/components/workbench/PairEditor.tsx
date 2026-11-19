@@ -27,8 +27,8 @@ export const PairEditor: React.FC<PairEditorProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between pb-3 border-b-2 border-black">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b-2 border-black">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span className="font-mono font-bold bg-[#FFE066] px-2 py-0.5 border border-black text-sm">
             {item.id}
           </span>

@@ -41,6 +41,8 @@
     "fix": "Fix wording",
     "escalate": "Ask a reviewer",
     "copy": "Copy issue list",
+    "downloadCsv": "Download CSV report",
+    "importCsv": "Import CSV",
     "retry": "Try again",
     "copied": "Issue list copied",
     "manualCopy": "Select and copy the issue text below."

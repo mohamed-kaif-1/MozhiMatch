@@ -5,9 +5,11 @@ import { reviewReducer, initialReviewState } from "../../lib/core/review-state";
 import { useI18n } from "../../i18n/provider";
 import { LocaleControl } from "../LocaleControl";
 import { PairEditor } from "./PairEditor";
-import { ReviewQueue } from "./ReviewQueue";
+import { ReviewQueue, StatusFilter } from "./ReviewQueue";
 import { EvidencePanel } from "./EvidencePanel";
+import { CsvImportModal } from "./CsvImportModal";
 import { formatReviewSummary } from "../../lib/core/export";
+import { generateReviewCsv } from "../../lib/core/csv-export";
 import devFixtures from "../../fixtures/development.json";
 import { QuestionItem, AnalyzeRequest } from "../../lib/contracts/types";
 import {
@@ -20,6 +22,8 @@ import {
   Loader2,
   Info,
   X,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react";
 
 export const Workbench: React.FC = () => {
@@ -30,6 +34,8 @@ export const Workbench: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -113,7 +119,10 @@ export const Workbench: React.FC = () => {
       const responseJson = await res.json();
       dispatch({
         type: "ANALYSIS_SUCCESS",
-        payload: { response: responseJson },
+        payload: {
+          response: responseJson,
+          analyzedAt: new Date().toISOString(),
+        },
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -149,10 +158,43 @@ export const Workbench: React.FC = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     } catch {
-      // Fallback: show selectable text modal
       setShowExportModal(true);
     }
   };
+
+  // Download CSV report
+  const handleDownloadCsv = (scope: "all" | "filtered" = "all") => {
+    let targetItems = state.items;
+    if (scope === "filtered" && activeFilter !== "all") {
+      targetItems = state.items.filter((item) => {
+        if (!state.analysisResponse) return activeFilter === "editing";
+        const found = state.analysisResponse.items.find((i) => i.id === item.id);
+        const status = found ? found.status : "editing";
+        return status === activeFilter;
+      });
+    }
+
+    const csvContent = generateReviewCsv(
+      targetItems,
+      state.analysisResponse,
+      state.decisions,
+      state.analyzedAt
+    );
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `mozhimatch-review-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Check if current questions have any custom content or analysis to guard CSV replacement
+  const hasExistingWork =
+    state.analysisResponse !== null ||
+    state.items.length > 1 ||
+    Boolean(state.items[0]?.en.stem && state.items[0].en.stem.trim().length > 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -164,7 +206,7 @@ export const Workbench: React.FC = () => {
               {t("app.name")}
             </h1>
             <span className="font-mono text-xs uppercase px-2 py-0.5 bg-black text-white font-bold">
-              MVP
+              BATCH REVIEW
             </span>
           </div>
           <p className="text-xs sm:text-sm text-gray-600 mt-1">{t("app.tagline")}</p>
@@ -187,8 +229,8 @@ export const Workbench: React.FC = () => {
       {/* Toolbar / Action Controls Bar */}
       <div className="paper-panel p-4 space-y-4 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Example Loader */}
-          <div className="flex items-center gap-2">
+          {/* Example Loader & CSV Import Button */}
+          <div className="flex flex-wrap items-center gap-2">
             <label className="text-xs font-bold text-gray-700">
               {t("editor.loadExample")}:
             </label>
@@ -203,6 +245,16 @@ export const Workbench: React.FC = () => {
               <option value="DEV_UNCERTAIN">DEV_UNCERTAIN (Transliteration ambiguous)</option>
               <option value="DEV_STRUCTURE">DEV_STRUCTURE (Option count mismatch)</option>
             </select>
+
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="neobrutal-btn text-xs px-3.5 py-2 flex items-center gap-1.5 min-h-[44px] font-bold bg-[#FFFDF5]"
+              title="Import a batch of paired questions via CSV"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-[#2154F4]" />
+              {t("actions.importCsv")}
+            </button>
           </div>
 
           {/* Mode Selector */}
@@ -212,7 +264,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => dispatch({ type: "SET_MODE", payload: "rules" })}
-                className={`px-3 py-2 text-xs font-bold transition-all ${
+                className={`px-3 py-2 text-xs font-bold transition-all min-h-[44px] ${
                   state.mode === "rules"
                     ? "bg-[#FFE066] text-black font-extrabold"
                     : "bg-white text-gray-600 hover:bg-gray-100"
@@ -223,7 +275,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => dispatch({ type: "SET_MODE", payload: "ai" })}
-                className={`px-3 py-2 text-xs font-bold transition-all border-l-2 border-black ${
+                className={`px-3 py-2 text-xs font-bold transition-all border-l-2 border-black min-h-[44px] ${
                   state.mode === "ai"
                     ? "bg-[#2154F4] text-white font-extrabold"
                     : "bg-white text-gray-600 hover:bg-gray-100"
@@ -287,7 +339,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="neobrutal-btn bg-[#FFE0DB] text-[#8A241A] text-sm px-5 py-2.5 flex items-center gap-2"
+                className="neobrutal-btn bg-[#FFE0DB] text-[#8A241A] text-sm px-5 py-2.5 flex items-center gap-2 min-h-[44px]"
               >
                 <X className="w-4 h-4" />
                 {t("actions.cancel")}
@@ -296,7 +348,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={handleRunAnalysis}
-                className="neobrutal-btn neobrutal-btn-primary text-sm px-6 py-2.5 flex items-center gap-2"
+                className="neobrutal-btn neobrutal-btn-primary text-sm px-6 py-2.5 flex items-center gap-2 min-h-[44px]"
               >
                 <Play className="w-4 h-4 fill-current" />
                 {state.mode === "ai" ? t("actions.analyze") : t("actions.rules")}
@@ -311,7 +363,31 @@ export const Workbench: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Download CSV Report */}
+            <div className="flex items-center border-2 border-black bg-white">
+              <button
+                type="button"
+                onClick={() => handleDownloadCsv("all")}
+                className="text-xs px-3 py-2 flex items-center gap-1.5 font-bold hover:bg-gray-100 min-h-[44px]"
+                title="Download full batch findings as CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-[#2154F4]" />
+                {t("actions.downloadCsv")}
+              </button>
+              {activeFilter !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCsv("filtered")}
+                  className="text-[11px] px-2 py-2 border-l border-black font-semibold text-gray-700 hover:bg-blue-50 min-h-[44px]"
+                  title="Download only questions matching active filter"
+                >
+                  (Filtered Only)
+                </button>
+              )}
+            </div>
+
+            {/* Copy Issue List */}
             <button
               type="button"
               onClick={handleCopySummary}
@@ -330,6 +406,7 @@ export const Workbench: React.FC = () => {
               )}
             </button>
 
+            {/* Reset All */}
             <button
               type="button"
               onClick={() => setShowResetConfirm(true)}
@@ -355,16 +432,19 @@ export const Workbench: React.FC = () => {
 
       {/* Main Workbench Layout: Left Editor & Queue, Right Evidence Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Review Queue (3 cols) & Pair Editor (9 cols on lg) */}
+        {/* Left Column: Review Queue (5 cols on lg) & Pair Editor */}
         <div className="lg:col-span-7 space-y-6">
           <ReviewQueue
             items={state.items}
             activeItemId={state.activeItemId}
             analysisResponse={state.analysisResponse}
             decisions={state.decisions}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
             onSelectItem={(id) => dispatch({ type: "SET_ACTIVE_ITEM", payload: { id } })}
             onAddItem={() => dispatch({ type: "ADD_ITEM" })}
             onRemoveItem={(id) => dispatch({ type: "REMOVE_ITEM", payload: { id } })}
+            onImportClick={() => setShowImportModal(true)}
             t={t}
           />
 
@@ -412,6 +492,17 @@ export const Workbench: React.FC = () => {
         </div>
       </div>
 
+      {/* CSV Import Modal */}
+      <CsvImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={(importedItems) => {
+          dispatch({ type: "SET_ITEMS", payload: importedItems });
+        }}
+        hasExistingWork={hasExistingWork}
+        t={t}
+      />
+
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -422,7 +513,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowResetConfirm(false)}
-                className="neobrutal-btn text-xs px-4 py-2"
+                className="neobrutal-btn text-xs px-4 py-2 min-h-[44px]"
               >
                 {t("actions.cancel")}
               </button>
@@ -432,7 +523,7 @@ export const Workbench: React.FC = () => {
                   dispatch({ type: "RESET_ALL" });
                   setShowResetConfirm(false);
                 }}
-                className="neobrutal-btn bg-[#FFE0DB] text-[#8A241A] font-bold text-xs px-4 py-2"
+                className="neobrutal-btn bg-[#FFE0DB] text-[#8A241A] font-bold text-xs px-4 py-2 min-h-[44px]"
               >
                 {t("actions.reset")}
               </button>
@@ -450,7 +541,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowExportModal(false)}
-                className="p-1 hover:bg-gray-100"
+                className="p-1 hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -466,7 +557,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowExportModal(false)}
-                className="neobrutal-btn text-xs px-4 py-2"
+                className="neobrutal-btn text-xs px-4 py-2 min-h-[44px]"
               >
                 Close
               </button>
@@ -484,7 +575,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}
-                className="p-1 hover:bg-gray-100"
+                className="p-1 hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -496,12 +587,16 @@ export const Workbench: React.FC = () => {
               </p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>
+                  <strong>CSV Batch Import:</strong> Upload up to 10 questions at once via CSV with full
+                  Unicode Tamil support and live validation preview.
+                </li>
+                <li>
                   <strong>Structural checks:</strong> Inspects option counts, labels, numeric
                   tokens, and units deterministically with zero paid API usage.
                 </li>
                 <li>
                   <strong>Semantic checks:</strong> Analyzes meaning preservation, negation drops,
-                  qualifiers, and answer position alignment.
+                  qualifiers, and answer position alignment using Google Gemini.
                 </li>
                 <li>
                   <strong>Exact evidence:</strong> Quotes literal strings from the original
@@ -509,7 +604,7 @@ export const Workbench: React.FC = () => {
                 </li>
                 <li>
                   <strong>Human decision:</strong> Mark each finding <em>Keep</em>, <em>Fix</em>, or{" "}
-                  <em>Escalate</em>, and copy the issue list for editorial review.
+                  <em>Escalate</em>, and download a complete CSV report or copy the issue list.
                 </li>
               </ul>
               <p className="text-gray-500 pt-2 border-t">
@@ -521,7 +616,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}
-                className="neobrutal-btn text-xs px-4 py-2"
+                className="neobrutal-btn text-xs px-4 py-2 min-h-[44px]"
               >
                 Got it
               </button>
@@ -532,4 +627,3 @@ export const Workbench: React.FC = () => {
     </div>
   );
 };
-
