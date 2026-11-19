@@ -309,9 +309,23 @@ MozhiMatch/
 
 ---
 
+## Brand Assets
+
+The MozhiMatch visual identity features the reconstructed geometric ribbon-folded **M** mark in solid brand blue (`#2154F4`) with wide negative space gaps and neobrutalist styling.
+
+| Asset | Format | Preview | Description |
+|---|---|---|---|
+| **Horizontal Logo** | [SVG](public/brand/logo-horizontal.svg) · [PNG (2x)](public/brand/logo-horizontal.png) | <img src="public/brand/logo-horizontal.svg" width="160" alt="MozhiMatch Logo" /> | Primary lockup with geometric M mark and bold wordmark |
+| **Monochrome Black** | [SVG](public/brand/logo-horizontal-mono-black.svg) · [PNG](public/brand/logo-horizontal-mono-black.png) | <img src="public/brand/logo-horizontal-mono-black.svg" width="160" alt="MozhiMatch Monochrome Black" /> | High-contrast dark neutral (`#171717`) for light print |
+| **Monochrome White** | [SVG](public/brand/logo-horizontal-mono-white.svg) · [PNG](public/brand/logo-horizontal-mono-white.png) | <img src="public/brand/logo-horizontal-mono-white.svg" width="160" alt="MozhiMatch Monochrome White" style="background:#171717;padding:4px;" /> | Inverted white (`#FFFFFF`) for dark backgrounds |
+| **Icon Only** | [SVG](public/brand/logo-icon.svg) · [PNG (512x512)](public/brand/logo-icon.png) | <img src="public/brand/logo-icon.svg" width="40" alt="MozhiMatch Icon" /> | Standalone geometric mark in solid blue (`#2154F4`) |
+| **Favicons** | [SVG](public/favicon.svg) · [ICO](public/favicon.ico) · [PNG](public/apple-touch-icon.png) | <img src="public/favicon.svg" width="32" height="32" alt="Favicon" /> | Multi-size favicon (16px, 32px, 48px, 180px apple-touch-icon) |
+
+---
+
 ## Roadmap
 
-- [ ] **Batch CSV Import / Export**: Review an entire examination paper (50–100 MCQs) in a single session.
+- [x] **Batch CSV Import / Export**: Review examination question papers (up to 10 questions per batch) with instant CSV import validation, preview, and results download.
 - [ ] **Offline Local LLM Support**: Add adapter for local inference engines (Ollama / ONNX) for air-gapped exam boards.
 - [ ] **Multi-Reviewer Audit Trail**: Export structured JSON-LD reports with reviewer signatures and timestamped decisions.
 

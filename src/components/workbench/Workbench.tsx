@@ -202,6 +202,18 @@ export const Workbench: React.FC = () => {
       <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b-2 border-black">
         <div>
           <div className="flex items-center gap-3">
+            <svg
+              viewBox="0 0 132 118"
+              className="w-8 h-7 sm:w-9 sm:h-8 shrink-0"
+              fill="none"
+              aria-label="MozhiMatch Logo"
+              role="img"
+            >
+              <polygon points="0,32 36,70 36,118 0,118" fill="#2154F4" />
+              <polygon points="96,70 132,32 132,118 96,118" fill="#2154F4" />
+              <polygon points="0,0 28,0 58,32 38,58 0,16" fill="#2154F4" />
+              <polygon points="104,0 132,0 132,16 66,88 46,66" fill="#2154F4" />
+            </svg>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               {t("app.name")}
             </h1>
