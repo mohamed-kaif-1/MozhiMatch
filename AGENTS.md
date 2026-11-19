@@ -21,3 +21,13 @@ Prohibit secret commits, fabricated metrics, silent deletion of tests, unapprove
 Contracts, exact evidence checks and test fixtures agree. Relevant unit/API tests, localisation coverage, browser smoke, TypeScript, lint and production build pass with recorded commands. Provider failures preserve structural review and manual decisions. Evaluation is measured against rules, a strong generic prompt and a serious practical comparison. Freeze held-out data before tuning. Track all application tests initially as NOT RUN. Create no extra test framework or dependency merely for appearance.
 
 The actual event was observed as solo. Use SOLO_IMPLEMENTATION_PLAN.md for the entry unless organizer permission enables the conditional Kaif–Aasim development lane. Never state that permission or final challenge fit is confirmed until recorded.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

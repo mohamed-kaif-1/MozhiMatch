@@ -63,18 +63,31 @@ Next is PROMPT_00 for inspection, followed by PROMPT_01 for environment and PROM
 - Symmetric key parity verified between `en.json` and `ta.json`.
 
 ### Milestone 9: Rules-Only Semantic Review Invariant & Regression Fix
+- **Commit:** `d2dda36` (`fix: ensure rules-only mode requires semantic review and add regression test`)
 - Updated `src/app/api/analyze/route.ts` so rules-only mode items always return `status: "needs_review"` rather than falsely implying semantic equivalence (`no_issue_found`) when structural checks pass.
 - Updated `EvidencePanel.tsx` UI wording with `review.noFindings` so reviewers clearly see that structure checks found no issue and semantic review is still required.
 - Added regression tests in `tests/api/analyze.test.ts` verifying that rules-only clean items yield `needs_review`, while live-AI clean items with complete validated comparisons retain `no_issue_found`.
 - Verified: 44 automated tests pass, typecheck, lint, and production build pass.
 
+### Milestone 10: Strict End-to-End Browser QA Testing
+- Conducted real browser interaction testing via Chrome DevTools protocol on running Next.js server (`http://localhost:3000`).
+- Tested across Desktop (1280x800) and Mobile viewports (375x667 iPhone SE, 390x844 iPhone Pro).
+- Full browser interaction recording captured in `recording.mp4`.
+- **Live Gemini Verification:** `POST /api/analyze` executed with `mode="live_ai"`, `providerStatus="ok"`, active model `gemini-3.5-flash-lite`.
+- **Custom Meaning-Change Question:** Verified "Which of these is NOT a fruit?" vs "இவற்றில் பழம் எது?" correctly flagged as `meaning_changed` with exact evidence highlights on negation difference.
+- **Clean Control Question:** Verified "இவற்றில் பழம் அல்லாதது எது?" under live AI correctly returned `no_issue_found` with stem and options A–D confirmed `equivalent`.
+- **Structural & Rules Verification:** Verified DEV_STRUCTURE option count mismatch, numeric token differences (2020 vs 2025-இல்), and confirmed DEV_CLEAN under rules-only mode strictly returns `needs_review`.
+- **Reviewer Workflow & Localization:** Verified Keep/Fix/Escalate button styling, report export to clipboard, help modal, private operator code toggle, reset confirmation, and dynamic bidirectional Tamil/English UI localization.
+- **Final Result:** 11/11 browser test suites passed, 0 runtime errors, ready for public deployment.
+
 ---
 
 ## Current Status and Commands Run
-- `npm run test` -> 9 passed test files, 42 passed tests (Exit code: 0)
+- `npm run test` -> 9 passed test files, 44 passed tests (Exit code: 0)
 - `npm run typecheck` -> Passed with 0 errors (Exit code: 0)
 - `npm run lint` -> Passed with 0 errors (Exit code: 0)
 - `npm run build` -> Optimized production build generated (Exit code: 0)
 - `npm run eval:development` -> 5 development items evaluated and saved (Exit code: 0)
+- Browser QA Suite -> 11/11 tests PASSED with live Gemini AI verification and session recording
 
 All code pushed to GitHub: `https://github.com/mohamed-kaif-1/MozhiMatch.git` (branch: `main`).
