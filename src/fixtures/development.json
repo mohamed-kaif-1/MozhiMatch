@@ -1,0 +1,223 @@
+[
+  {
+    "id": "DEV_NEGATION",
+    "en": {
+      "stem": "Which of these is NOT a renewable energy source?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Solar"
+        },
+        {
+          "label": "B",
+          "text": "Wind"
+        },
+        {
+          "label": "C",
+          "text": "Coal"
+        },
+        {
+          "label": "D",
+          "text": "Hydropower"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "சூரிய ஆற்றல்"
+        },
+        {
+          "label": "B",
+          "text": "காற்று ஆற்றல்"
+        },
+        {
+          "label": "C",
+          "text": "நிலக்கரி"
+        },
+        {
+          "label": "D",
+          "text": "நீர்மின் ஆற்றல்"
+        }
+      ]
+    }
+  },
+  {
+    "id": "DEV_VERB",
+    "en": {
+      "stem": "Which statement says that the school received an award?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Statement one"
+        },
+        {
+          "label": "B",
+          "text": "Statement two"
+        },
+        {
+          "label": "C",
+          "text": "Statement three"
+        },
+        {
+          "label": "D",
+          "text": "Statement four"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "பள்ளி விருது வழங்கியதாகக் கூறும் கூற்று எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "முதல் கூற்று"
+        },
+        {
+          "label": "B",
+          "text": "இரண்டாம் கூற்று"
+        },
+        {
+          "label": "C",
+          "text": "மூன்றாம் கூற்று"
+        },
+        {
+          "label": "D",
+          "text": "நான்காம் கூற்று"
+        }
+      ]
+    }
+  },
+  {
+    "id": "DEV_CLEAN",
+    "en": {
+      "stem": "Which is a prime number?",
+      "options": [
+        {
+          "label": "A",
+          "text": "2"
+        },
+        {
+          "label": "B",
+          "text": "4"
+        },
+        {
+          "label": "C",
+          "text": "6"
+        },
+        {
+          "label": "D",
+          "text": "8"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "பகா எண் எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "2"
+        },
+        {
+          "label": "B",
+          "text": "4"
+        },
+        {
+          "label": "C",
+          "text": "6"
+        },
+        {
+          "label": "D",
+          "text": "8"
+        }
+      ]
+    }
+  },
+  {
+    "id": "DEV_UNCERTAIN",
+    "en": {
+      "stem": "Which statement about K. Ravi is correct?",
+      "options": [
+        {
+          "label": "A",
+          "text": "He joined in 2020"
+        },
+        {
+          "label": "B",
+          "text": "He joined in 2021"
+        },
+        {
+          "label": "C",
+          "text": "He joined in 2022"
+        },
+        {
+          "label": "D",
+          "text": "He joined in 2023"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "க. ரவியைப் பற்றிய சரியான கூற்று எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "அவர் 2020-இல் சேர்ந்தார்"
+        },
+        {
+          "label": "B",
+          "text": "அவர் 2021-இல் சேர்ந்தார்"
+        },
+        {
+          "label": "C",
+          "text": "அவர் 2022-இல் சேர்ந்தார்"
+        },
+        {
+          "label": "D",
+          "text": "அவர் 2023-இல் சேர்ந்தார்"
+        }
+      ]
+    }
+  },
+  {
+    "id": "DEV_STRUCTURE",
+    "en": {
+      "stem": "Which number is even?",
+      "options": [
+        {
+          "label": "A",
+          "text": "2"
+        },
+        {
+          "label": "B",
+          "text": "3"
+        },
+        {
+          "label": "C",
+          "text": "5"
+        },
+        {
+          "label": "D",
+          "text": "7"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "இரட்டை எண் எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "2"
+        },
+        {
+          "label": "B",
+          "text": "3"
+        },
+        {
+          "label": "C",
+          "text": "5"
+        }
+      ]
+    }
+  }
+]
