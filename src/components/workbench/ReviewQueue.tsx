@@ -36,7 +36,7 @@ interface ReviewQueueProps {
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-export const ReviewQueue: React.FC<ReviewQueueProps> = ({
+export const ReviewQueue: React.FC<ReviewQueueProps> = React.memo(({
   items,
   activeItemId,
   analysisResponse,
@@ -368,4 +368,6 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
       </div>
     </div>
   );
-};
+});
+
+ReviewQueue.displayName = "ReviewQueue";

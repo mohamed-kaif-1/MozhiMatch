@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AnalyzeRequestSchema, AnalyzeResponseSchema } from "../../../lib/contracts/schemas";
-
-export const dynamic = "force-dynamic";
-export const maxDuration = 30;
 import {
   AnalyzeResponse,
   AnalyzeResponseItem,
-  ErrorResponse,
   QuestionItem,
   WarningCode,
 } from "../../../lib/contracts/types";
-import { APP_LIMITS } from "../../../lib/contracts/config";
 import { checkStructuralRules, isStructurallyBlocked } from "../../../lib/core/rules";
 import { validateItemComparisons } from "../../../lib/core/evidence";
 import {
@@ -19,112 +14,76 @@ import {
 } from "../../../lib/server/access";
 import { enforceRateLimit, enforceGlobalAIBudget } from "../../../lib/server/ratelimit";
 import { callGeminiSemanticReview } from "../../../lib/ai/gemini";
+import {
+  createErrorResponse,
+  createRateLimitHeaders,
+  createRateLimitBlockedHeaders,
+  validateContentType,
+  parseAndValidateJsonBody,
+} from "../../../lib/server/api-helpers";
 
-function errorResponse(
-  status: number,
-  code: ErrorResponse["error"]["code"],
-  messageKey: string,
-  requestId: string | null = null,
-  headers?: Record<string, string>
-): NextResponse {
-  const body: ErrorResponse = {
-    error: {
-      code,
-      messageKey,
-      requestId,
-    },
-  };
-  return NextResponse.json(body, { status, headers });
-}
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // 1. Content-Type check
-  const contentType = request.headers.get("content-type") || "";
-  if (!contentType.toLowerCase().includes("application/json")) {
-    return errorResponse(415, "UNSUPPORTED_MEDIA_TYPE", "errors.unsupportedMediaType");
+  const contentTypeError = validateContentType(request);
+  if (contentTypeError) {
+    return contentTypeError;
   }
 
   // 2. Rate limiting enforcement
   const rateLimitCheck = await enforceRateLimit(request, "analyze");
   if (!rateLimitCheck.allowed) {
-    return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", null, {
-      "Retry-After": String(rateLimitCheck.retryAfterSeconds ?? 60),
-      "X-RateLimit-Limit": String(rateLimitCheck.limit),
-      "X-RateLimit-Remaining": "0",
-      "X-RateLimit-Reset": String(rateLimitCheck.resetSeconds),
-    });
+    return createErrorResponse(
+      429,
+      "RATE_LIMITED",
+      "errors.rateLimited",
+      null,
+      createRateLimitBlockedHeaders(rateLimitCheck)
+    );
   }
 
-  const rateLimitHeaders = {
-    "X-RateLimit-Limit": String(rateLimitCheck.limit),
-    "X-RateLimit-Remaining": String(rateLimitCheck.remaining),
-    "X-RateLimit-Reset": String(rateLimitCheck.resetSeconds),
-  };
+  const rateLimitHeaders = createRateLimitHeaders(rateLimitCheck);
 
-  // 3. Read body text and check length bounds
-  let rawBody: string;
-  try {
-    rawBody = await request.text();
-  } catch {
-    return errorResponse(400, "INVALID_REQUEST", "errors.invalidRequest");
+  // 3. Read body text, check length bounds, parse JSON, and validate schema
+  const parsed = await parseAndValidateJsonBody(request, AnalyzeRequestSchema);
+  if (!parsed.success) {
+    return parsed.response;
   }
 
-  const byteLength = Buffer.byteLength(rawBody, "utf8");
-  if (byteLength > APP_LIMITS.MAX_REQUEST_BYTES) {
-    return errorResponse(413, "BODY_TOO_LARGE", "errors.bodyTooLarge");
-  }
+  const { requestId, revision, locale, mode, consent, items } = parsed.data;
 
-  // 3. Parse JSON
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(rawBody);
-  } catch {
-    return errorResponse(400, "INVALID_REQUEST", "errors.invalidRequest");
-  }
-
-  // 4. Validate schema
-  const validation = AnalyzeRequestSchema.safeParse(parsedJson);
-  if (!validation.success) {
-    const reqId =
-      typeof parsedJson === "object" && parsedJson !== null && "requestId" in parsedJson
-        ? String((parsedJson as Record<string, unknown>).requestId)
-        : null;
-    return errorResponse(422, "INVALID_REQUEST", "errors.invalidRequest", reqId);
-  }
-
-  const reqData = validation.data;
-  const { requestId, revision, locale, mode, consent, items } = reqData;
-
-  // 5. Origin check
+  // 4. Origin check
   const originCheck = validateOrigin(request.headers.get("origin"));
   if (!originCheck.authorized && originCheck.errorCode && originCheck.messageKey) {
-    return errorResponse(403, originCheck.errorCode, originCheck.messageKey, requestId);
+    return createErrorResponse(403, originCheck.errorCode, originCheck.messageKey, requestId);
   }
 
-  // 6. If AI mode requested: check consent, AI access, and global budget
+  // 5. If AI mode requested: check consent, AI access, and global budget
   if (mode === "ai") {
     if (!consent) {
-      return errorResponse(422, "CONSENT_REQUIRED", "errors.consentRequired", requestId);
+      return createErrorResponse(422, "CONSENT_REQUIRED", "errors.consentRequired", requestId);
     }
 
-    // Step 6a: AI access authorization check BEFORE budget consumption
+    // Step 5a: AI access authorization check BEFORE budget consumption
     // Unauthorized requests must never exhaust the judge demo allowance.
     const aiAccessCheck = validateAnalyzeAIAccess(items, request.headers.get("x-demo-code"));
     if (!aiAccessCheck.authorized && aiAccessCheck.errorCode && aiAccessCheck.messageKey) {
       const status = aiAccessCheck.errorCode === "UNAUTHORIZED_DEMO" ? 401 : 403;
-      return errorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
+      return createErrorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
     }
 
-    // Step 6b: Shared quota requirement for anonymous public Gemini inference
+    // Step 5b: Shared quota requirement for anonymous public Gemini inference
     const isAnonymousPublic =
       process.env.DEPLOYMENT_MODE === "public_demo" && !aiAccessCheck.isOperator;
 
-    // Step 6c: Global AI Request Budget check
+    // Step 5c: Global AI Request Budget check
     const budgetCheck = await enforceGlobalAIBudget("analyze", {
       requireSharedQuota: isAnonymousPublic,
     });
     if (!budgetCheck.allowed) {
-      return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", requestId, {
+      return createErrorResponse(429, "RATE_LIMITED", "errors.rateLimited", requestId, {
         "Retry-After": String(budgetCheck.retryAfterSeconds ?? 3600),
         "X-RateLimit-Limit": String(budgetCheck.limit),
         "X-RateLimit-Remaining": "0",
@@ -132,7 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 7. Structural rules for each item
+  // 6. Structural rules for each item
   const itemFindingsMap = new Map<string, ReturnType<typeof checkStructuralRules>>();
   const structurallyBlockedSet = new Set<string>();
 
@@ -144,7 +103,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 8. If mode is "rules", return rules-only analysis directly
+  // 7. If mode is "rules", return rules-only analysis directly
   // In rules-only mode, all items require semantic review even if structural checks pass cleanly
   if (mode === "rules") {
     const responseItems: AnalyzeResponseItem[] = items.map((item) => {
@@ -170,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(responseBody, { status: 200, headers: rateLimitHeaders });
   }
 
-  // 9. AI mode execution
+  // 8. AI mode execution
   const eligibleItems: QuestionItem[] = items.filter(
     (item) => !structurallyBlockedSet.has(item.id)
   );
@@ -289,9 +248,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const finalCheck = AnalyzeResponseSchema.safeParse(responseBody);
   if (!finalCheck.success) {
-    return errorResponse(500, "INTERNAL_ERROR", "errors.internalError", requestId);
+    return createErrorResponse(500, "INTERNAL_ERROR", "errors.internalError", requestId);
   }
 
   return NextResponse.json(finalCheck.data, { status: 200, headers: rateLimitHeaders });
 }
-

@@ -22,7 +22,7 @@
 
 - **Live Public Demo**: [https://mozhimatch.vercel.app/](https://mozhimatch.vercel.app/) — Live production deployment on Vercel with serverless Gemini integration.
 - **Judge Quick Test (No Password Required)**: Judges can evaluate live Semantic AI Review and AI Correction Suggestions directly on built-in sample fixtures without entering any access code.
-- **Full Automation QA Gate**: 15/15 Vitest test files passing (113/113 tests) + 16/16 Playwright browser tests passing (100%) across 7 viewports.
+- **Full Automation QA Gate**: 17/17 Vitest test files passing (129/129 tests) + 16/16 Playwright browser tests passing (100%) across 7 viewports.
 
 ---
 
@@ -224,7 +224,7 @@ MozhiMatch maintains clear separation between test suites, browser testing, and 
 
 | Check | Result | Location / Command | Scope & Notes |
 |---|---|---|---|
-| **Unit & Contract Tests** | **113 / 113 Passing** (15 suites) | `npm run test` | Validates CSV import/export, Zod contracts, structural rules, evidence quotes, exports, access guards, rate limiting, global budget, AI suggestions, and review state transitions. |
+| **Unit & Contract Tests** | **129 / 129 Passing** (17 suites) | `npm run test` | Validates CSV import/export, Zod contracts, structural rules, evidence quotes, exports, access guards, rate limiting, global budget, AI suggestions, server API helpers, structural parity, and review state transitions. |
 | **Static Quality Gates** | **0 Errors, Clean Build** | `npx tsc --noEmit`<br>`npm run lint`<br>`npm run build` | TypeScript 5.9 strict typecheck (0 errors), ESLint 9 (0 errors/0 warnings), and Next.js 16 production Turbopack compilation. |
 | **Automated Chrome Browser QA** | **16 / 16 Passing (100%)** | `node scripts/run_production_qa.mjs` | Automated multi-viewport audit across 7 screen widths (320px–1920px), zero toolbar overlap, state synchronization, live AI review, suggest-apply-undo correction workflow, reviewer triage, rules checks, CSV export, and Tamil localization. |
 | **Live AI Benchmark** | **1.000 Precision, 0.923 F1** | `final-audit/02-semantic-benchmark.md` | 30 frozen benchmark cases. 0.000 False Negative Rate on bad questions. Resisted adversarial prompt injection attacks that compromised generic LLMs. |
@@ -290,7 +290,7 @@ MozhiMatch/
 │   ├── i18n/                  # Bilingual locale provider
 │   ├── lib/                   # AI client, contracts, rules, server guards, CSV engines
 │   └── messages/              # English (`en.json`) and Tamil (`ta.json`) translations
-├── tests/                     # Automated Vitest test suites (15 suites, 113 tests)
+├── tests/                     # Automated Vitest test suites (17 suites, 129 tests)
 ├── package.json               # Project manifest, scripts, and dependencies
 └── README.md                  # Project documentation & presentation
 ```

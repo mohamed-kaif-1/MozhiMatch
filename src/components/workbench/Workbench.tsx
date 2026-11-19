@@ -11,6 +11,7 @@ import { CsvImportModal } from "./CsvImportModal";
 import { ExampleSelector } from "./ExampleSelector";
 import { formatReviewSummary } from "../../lib/core/export";
 import { generateReviewCsv } from "../../lib/core/csv-export";
+import { checkStructuralRules } from "../../lib/core/rules";
 import devFixtures from "../../fixtures/development.json";
 import { QuestionItem, AnalyzeRequest, ValidatedComparison, AnalyzeResponse } from "../../lib/contracts/types";
 import { CorrectionRequest, CorrectionResponse } from "../../lib/contracts/correction";
@@ -66,6 +67,29 @@ export const Workbench: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showHelpModal, showResetConfirm, showExportModal, showImportModal]);
+
+  // Abort in-flight correction requests for other items when active question changes
+  useEffect(() => {
+    Object.entries(correctionAbortControllersRef.current).forEach(([key, controller]) => {
+      if (!key.startsWith(`${state.activeItemId}:`)) {
+        controller.abort();
+        delete correctionAbortControllersRef.current[key];
+      }
+    });
+  }, [state.activeItemId]);
+
+  // Clean up all in-flight controllers on unmount
+  useEffect(() => {
+    const controllers = correctionAbortControllersRef.current;
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      Object.values(controllers).forEach((controller) => {
+        controller.abort();
+      });
+    };
+  }, []);
 
   const activeItem =
     state.items.find((i) => i.id === state.activeItemId) || state.items[0];
@@ -139,11 +163,43 @@ export const Workbench: React.FC = () => {
     }
 
     const requestId = crypto.randomUUID();
-    dispatch({ type: "START_ANALYSIS", payload: { requestId } });
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
+
+    dispatch({ type: "START_ANALYSIS", payload: { requestId } });
+
+    // Instant local evaluation for pure structural checks (0ms latency, zero tokens)
+    if (state.mode === "rules") {
+      const responseItems = state.items.map((item) => ({
+        id: item.id,
+        status: "needs_review" as const,
+        structuralFindings: checkStructuralRules(item),
+        comparisons: [],
+      }));
+
+      const responseJson: AnalyzeResponse = {
+        requestId,
+        revision: state.revision,
+        mode: "rules_only",
+        model: null,
+        providerStatus: "not_requested",
+        warnings: [],
+        items: responseItems,
+      };
+
+      dispatch({
+        type: "ANALYSIS_SUCCESS",
+        payload: {
+          response: responseJson,
+          analyzedAt: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -165,6 +221,7 @@ export const Workbench: React.FC = () => {
         payload: {
           messageKey: "errors.bodyTooLarge",
           code: "BODY_TOO_LARGE",
+          requestId,
         },
       });
       return;
@@ -189,14 +246,26 @@ export const Workbench: React.FC = () => {
         const errJson = await res.json().catch(() => null);
         const code = errJson?.error?.code || "INTERNAL_ERROR";
         const messageKey = errJson?.error?.messageKey || "errors.internalError";
+        if (controller.signal.aborted || abortControllerRef.current !== controller) {
+          return;
+        }
         dispatch({
           type: "ANALYSIS_ERROR",
-          payload: { messageKey, code },
+          payload: { messageKey, code, requestId },
         });
         return;
       }
 
+      if (controller.signal.aborted || abortControllerRef.current !== controller) {
+        return;
+      }
+
       const responseJson = await res.json();
+
+      if (controller.signal.aborted || abortControllerRef.current !== controller) {
+        return;
+      }
+
       dispatch({
         type: "ANALYSIS_SUCCESS",
         payload: {
@@ -206,6 +275,16 @@ export const Workbench: React.FC = () => {
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+          dispatch({
+            type: "ANALYSIS_ERROR",
+            payload: { messageKey: "actions.cancel", requestId },
+          });
+        }
+        return;
+      }
+      if (controller.signal.aborted || abortControllerRef.current !== controller) {
         return;
       }
       dispatch({
@@ -213,20 +292,26 @@ export const Workbench: React.FC = () => {
         payload: {
           messageKey: "errors.internalError",
           code: "INTERNAL_ERROR",
+          requestId,
         },
       });
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   };
 
   // Cancel in-flight analysis
   const handleCancel = () => {
+    const activeReqId = state.currentRequestId ?? undefined;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     dispatch({
       type: "ANALYSIS_ERROR",
-      payload: { messageKey: "actions.cancel" },
+      payload: { messageKey: "actions.cancel", requestId: activeReqId },
     });
   };
 
@@ -367,7 +452,9 @@ export const Workbench: React.FC = () => {
         return;
       }
 
+      if (controller.signal.aborted) return;
       const data: CorrectionResponse = await res.json();
+      if (controller.signal.aborted) return;
 
       setCorrectionStates((prev) => ({
         ...prev,
@@ -380,7 +467,15 @@ export const Workbench: React.FC = () => {
         },
       }));
     } catch (err: unknown) {
-      if ((err as Error)?.name === "AbortError") return;
+      if ((err as Error)?.name === "AbortError") {
+        setCorrectionStates((prev) => {
+          if (!prev[itemKey]?.isLoading) return prev;
+          const copy = { ...prev };
+          delete copy[itemKey];
+          return copy;
+        });
+        return;
+      }
       setCorrectionStates((prev) => ({
         ...prev,
         [itemKey]: {
@@ -391,6 +486,10 @@ export const Workbench: React.FC = () => {
           appliedSuggestedText: undefined,
         },
       }));
+    } finally {
+      if (correctionAbortControllersRef.current[itemKey] === controller) {
+        delete correctionAbortControllersRef.current[itemKey];
+      }
     }
   };
 
@@ -856,6 +955,14 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
+                  if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                    abortControllerRef.current = null;
+                  }
+                  Object.values(correctionAbortControllersRef.current).forEach((controller) => {
+                    controller.abort();
+                  });
+                  correctionAbortControllersRef.current = {};
                   setCorrectionStates({});
                   setCachedAnalysis(null);
                   dispatch({ type: "RESET_ALL" });

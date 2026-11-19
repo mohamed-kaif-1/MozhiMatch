@@ -33,7 +33,7 @@ export type ReviewAction =
   | { type: "SET_DEMO_CODE"; payload: string }
   | { type: "START_ANALYSIS"; payload: { requestId: string } }
   | { type: "ANALYSIS_SUCCESS"; payload: { response: AnalyzeResponse; analyzedAt?: string } }
-  | { type: "ANALYSIS_ERROR"; payload: { messageKey: string; code?: string } }
+  | { type: "ANALYSIS_ERROR"; payload: { messageKey: string; code?: string; requestId?: string } }
   | { type: "SET_DECISION"; payload: { itemId: string; fieldKey: string; decision: ReviewDecisionType } }
   | { type: "RESET_ALL" };
 
@@ -68,6 +68,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         error: null,
         decisions: {},
         isAnalyzing: false,
+        currentRequestId: null,
       };
     }
 
@@ -252,24 +253,52 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         error: null,
       };
 
-    case "ANALYSIS_SUCCESS":
+    case "ANALYSIS_SUCCESS": {
+      // Outdated response & post-reset protection:
+      // Accept ANALYSIS_SUCCESS only when an analysis is actively in-flight,
+      // the response request ID matches currentRequestId, and its revision
+      // exactly matches state.revision. Reject all stale, unrequested, or post-reset responses.
+      if (
+        !state.isAnalyzing ||
+        !state.currentRequestId ||
+        action.payload.response.requestId !== state.currentRequestId ||
+        action.payload.response.revision !== state.revision
+      ) {
+        return state;
+      }
+
       return {
         ...state,
         isAnalyzing: false,
+        currentRequestId: null,
         analysisResponse: action.payload.response,
         analyzedAt: action.payload.analyzedAt || new Date().toISOString(),
         error: null,
       };
+    }
 
-    case "ANALYSIS_ERROR":
+    case "ANALYSIS_ERROR": {
+      // Stale error protection:
+      // If a requestId is provided and does not match the active request,
+      // or if no analysis is active when a tagged error arrives, reject it
+      // so stale errors cannot clear a newer request's loading state.
+      if (
+        (action.payload.requestId && action.payload.requestId !== state.currentRequestId) ||
+        (!state.isAnalyzing && action.payload.requestId)
+      ) {
+        return state;
+      }
+
       return {
         ...state,
         isAnalyzing: false,
+        currentRequestId: null,
         error: {
           messageKey: action.payload.messageKey,
           code: action.payload.code,
         },
       };
+    }
 
     case "SET_DECISION": {
       const { itemId, fieldKey, decision } = action.payload;

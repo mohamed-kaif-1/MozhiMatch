@@ -64,7 +64,7 @@ function HighlightedText({
   );
 }
 
-export const EvidencePanel: React.FC<EvidencePanelProps> = ({
+export const EvidencePanel: React.FC<EvidencePanelProps> = React.memo(({
   item,
   analysisItem,
   decisions,
@@ -495,4 +495,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
       )}
     </div>
   );
-};
+});
+
+EvidencePanel.displayName = "EvidencePanel";
