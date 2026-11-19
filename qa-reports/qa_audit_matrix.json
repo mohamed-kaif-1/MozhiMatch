@@ -1,0 +1,162 @@
+[
+  {
+    "testId": "TOOLBAR-VP-320",
+    "feature": "Toolbar Layout & Dropdown at 320px (320px_mobile_small)",
+    "steps": "Resize viewport to 320x700, open Example dropdown, verify no overlap and clean rendering",
+    "expected": "Example dropdown opens with ample width and does not collide or overlap with mode toggle",
+    "observed": "PASS: Clean rendering, listbox visible=true, no bounding overlap",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/toolbar_320px_mobile_small.png"
+  },
+  {
+    "testId": "TOOLBAR-VP-375",
+    "feature": "Toolbar Layout & Dropdown at 375px (375px_mobile_iphone_x)",
+    "steps": "Resize viewport to 375x812, open Example dropdown, verify no overlap and clean rendering",
+    "expected": "Example dropdown opens with ample width and does not collide or overlap with mode toggle",
+    "observed": "PASS: Clean rendering, listbox visible=true, no bounding overlap",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/toolbar_375px_mobile_iphone_x.png"
+  },
+  {
+    "testId": "TOOLBAR-VP-390",
+    "feature": "Toolbar Layout & Dropdown at 390px (390px_mobile_iphone_14)",
+    "steps": "Resize viewport to 390x844, open Example dropdown, verify no overlap and clean rendering",
+    "expected": "Example dropdown opens with ample width and does not collide or overlap with mode toggle",
+    "observed": "PASS: Clean rendering, listbox visible=true, no bounding overlap",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/toolbar_390px_mobile_iphone_14.png"
+  },
+  {
+    "testId": "TOOLBAR-VP-768",
+    "feature": "Toolbar Layout & Dropdown at 768px (768px_tablet_ipad)",
+    "steps": "Resize viewport to 768x1024, open Example dropdown, verify no overlap and clean rendering",
+    "expected": "Example dropdown opens with ample width and does not collide or overlap with mode toggle",
+    "observed": "PASS: Clean rendering, listbox visible=true, no bounding overlap",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/toolbar_768px_tablet_ipad.png"
+  },
+  {
+    "testId": "TOOLBAR-VP-1024",
+    "feature": "Toolbar Layout & Dropdown at 1024px (1024px_tablet_landscape)",
+    "steps": "Resize viewport to 1024x768, open Example dropdown, verify no overlap and clean rendering",
+    "expected": "Example dropdown opens with ample width and does not collide or overlap with mode toggle",
+    "observed": "PASS: Clean rendering, listbox visible=true, no bounding overlap",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/toolbar_1024px_tablet_landscape.png"
+  },
+  {
+    "testId": "TOOLBAR-VP-1366",
+    "feature": "Toolbar Layout & Dropdown at 1366px (1366px_laptop)",
+    "steps": "Resize viewport to 1366x768, open Example dropdown, verify no overlap and clean rendering",
+    "expected": "Example dropdown opens with ample width and does not collide or overlap with mode toggle",
+    "observed": "PASS: Clean rendering, listbox visible=true, no bounding overlap",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/toolbar_1366px_laptop.png"
+  },
+  {
+    "testId": "TOOLBAR-VP-1920",
+    "feature": "Toolbar Layout & Dropdown at 1920px (1920px_desktop)",
+    "steps": "Resize viewport to 1920x1080, open Example dropdown, verify no overlap and clean rendering",
+    "expected": "Example dropdown opens with ample width and does not collide or overlap with mode toggle",
+    "observed": "PASS: Clean rendering, listbox visible=true, no bounding overlap",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/toolbar_1920px_desktop.png"
+  },
+  {
+    "testId": "SYNC-01",
+    "feature": "Authoritative initial question state matching DEV_NEGATION",
+    "steps": "Load homepage with clean session, check active question and dropdown title",
+    "expected": "Dropdown shows DEV_NEGATION and loaded question is DEV_NEGATION with authentic negation prompt",
+    "observed": "PASS: Dropdown shows 'DEV_NEGATION\n(Negation...)', stem matches fixture",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": ""
+  },
+  {
+    "testId": "SYNC-02",
+    "feature": "Switch example to DEV_VERB",
+    "steps": "Click ExampleSelector -> Select DEV_VERB",
+    "expected": "Dropdown updates to DEV_VERB and editor loads authoritative verb mismatch fixture",
+    "observed": "PASS: Switched to DEV_VERB correctly",
+    "status": "PASS",
+    "severity": "P1",
+    "screenshotPath": ""
+  },
+  {
+    "testId": "SYNC-03",
+    "feature": "Dropdown updates to unselected placeholder when question is modified",
+    "steps": "Type into question stem, observe ExampleSelector",
+    "expected": "Dropdown should not claim an example is loaded when text has been altered",
+    "observed": "PASS: Dropdown correctly deselects on edit ('Select an example…')",
+    "status": "PASS",
+    "severity": "P1",
+    "screenshotPath": ""
+  },
+  {
+    "testId": "AI-PUBLIC-01",
+    "feature": "Anonymous password-free Semantic AI Review on DEV_NEGATION",
+    "steps": "Select DEV_NEGATION, activate Semantic AI Review, click Compare without entering code",
+    "expected": "AI analysis executes live on server fixture and identifies negation difference",
+    "observed": "PASS: Discrepancy successfully identified without password",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/live_ai_negation_result.png"
+  },
+  {
+    "testId": "CORRECTION-01",
+    "feature": "AI Translation Correction: Suggest, Apply to Editor, and Undo",
+    "steps": "Click Suggest -> Verify suggestion card -> Apply -> Verify Tamil stem updated -> Undo -> Verify restored",
+    "expected": "Suggested fix modifies Tamil stem with accurate negation, Undo restores original cleanly",
+    "observed": "PASS: Suggest, Apply, and Undo all verified successfully",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": "qa-reports/screenshots/ai_correction_modal.png"
+  },
+  {
+    "testId": "REVIEW-01",
+    "feature": "Reviewer decision recording (Fix wording)",
+    "steps": "Click 'Fix wording' on finding",
+    "expected": "Decision is recorded and batch counter updates",
+    "observed": "PASS: Decision recorded and counter updated",
+    "status": "PASS",
+    "severity": "P1",
+    "screenshotPath": ""
+  },
+  {
+    "testId": "RULES-01",
+    "feature": "Deterministic Structure Check on DEV_STRUCTURE",
+    "steps": "Load DEV_STRUCTURE (4 en options vs 3 ta options), click Run structure checks",
+    "expected": "Instant deterministic detection of option count mismatch without calling AI",
+    "observed": "PASS: Structural option count mismatch detected immediately",
+    "status": "PASS",
+    "severity": "P0",
+    "screenshotPath": ""
+  },
+  {
+    "testId": "CSV-EXPORT-01",
+    "feature": "Download Review CSV Report",
+    "steps": "Click 'Download CSV report'",
+    "expected": "Browser triggers download of .csv file with review findings",
+    "observed": "PASS: Downloaded mozhimatch-review-report-2026-11-19.csv",
+    "status": "PASS",
+    "severity": "P1",
+    "screenshotPath": ""
+  },
+  {
+    "testId": "I18N-01",
+    "feature": "Switch interface language to Tamil",
+    "steps": "Click தமிழ் in header",
+    "expected": "Interface headings, buttons, and badges switch to clean Tamil typography",
+    "observed": "PASS: Tamil localization rendered cleanly",
+    "status": "PASS",
+    "severity": "P1",
+    "screenshotPath": "qa-reports/screenshots/tamil_interface.png"
+  }
+]

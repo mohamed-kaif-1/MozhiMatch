@@ -1,5 +1,5 @@
 import { QuestionItem, AnalyzeResponse, ReviewDecisionType } from "../contracts/types";
-import { DEFAULT_QUESTION_ITEM } from "../contracts/config";
+import devFixtures from "../../fixtures/development.json";
 
 export interface ReviewState {
   items: QuestionItem[];
@@ -38,30 +38,8 @@ export type ReviewAction =
   | { type: "RESET_ALL" };
 
 export const initialReviewState: ReviewState = {
-  items: [
-    {
-      ...DEFAULT_QUESTION_ITEM,
-      en: {
-        stem: "Which of these is NOT a renewable energy source?",
-        options: [
-          { label: "A", text: "Solar" },
-          { label: "B", text: "Wind" },
-          { label: "C", text: "Coal" },
-          { label: "D", text: "Hydropower" },
-        ],
-      },
-      ta: {
-        stem: "இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?",
-        options: [
-          { label: "A", text: "சூரிய ஆற்றல்" },
-          { label: "B", text: "காற்று ஆற்றல்" },
-          { label: "C", text: "நிலக்கரி" },
-          { label: "D", text: "நீர்மின் ஆற்றல்" },
-        ],
-      },
-    },
-  ],
-  activeItemId: "Q1",
+  items: [JSON.parse(JSON.stringify(devFixtures[0])) as QuestionItem],
+  activeItemId: devFixtures[0].id,
   revision: 0,
   mode: "rules",
   sourceKind: "synthetic",

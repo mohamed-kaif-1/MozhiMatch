@@ -8,6 +8,7 @@ import { PairEditor } from "./PairEditor";
 import { ReviewQueue, StatusFilter } from "./ReviewQueue";
 import { EvidencePanel, CorrectionFieldState } from "./EvidencePanel";
 import { CsvImportModal } from "./CsvImportModal";
+import { ExampleSelector } from "./ExampleSelector";
 import { formatReviewSummary } from "../../lib/core/export";
 import { generateReviewCsv } from "../../lib/core/csv-export";
 import devFixtures from "../../fixtures/development.json";
@@ -85,6 +86,29 @@ export const Workbench: React.FC = () => {
 
   const panelAnalysisItem = activeAnalysisItem || (hasCorrectionActive ? cachedItem : null);
   const isStale = Boolean(!activeAnalysisItem && panelAnalysisItem);
+
+  // Dynamically compute whether current items match an authoritative built-in example
+  const activeExampleId = React.useMemo(() => {
+    if (state.items.length !== 1) return "";
+    const current = state.items[0];
+    const match = devFixtures.find((fixture) => {
+      if (fixture.id !== current.id) return false;
+      if (fixture.en.stem.trim() !== current.en.stem.trim()) return false;
+      if (fixture.ta.stem.trim() !== current.ta.stem.trim()) return false;
+      if (fixture.en.options.length !== current.en.options.length) return false;
+      if (fixture.ta.options.length !== current.ta.options.length) return false;
+      for (let i = 0; i < fixture.en.options.length; i++) {
+        if (fixture.en.options[i].label !== current.en.options[i].label) return false;
+        if (fixture.en.options[i].text.trim() !== current.en.options[i].text.trim()) return false;
+      }
+      for (let i = 0; i < fixture.ta.options.length; i++) {
+        if (fixture.ta.options[i].label !== current.ta.options[i].label) return false;
+        if (fixture.ta.options[i].text.trim() !== current.ta.options[i].text.trim()) return false;
+      }
+      return true;
+    });
+    return match ? match.id : "";
+  }, [state.items]);
 
   // Handle example selection
   const handleLoadExample = (exampleId: string) => {
@@ -530,168 +554,170 @@ export const Workbench: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. Compact Single-Row Utility Bar (Max ~56px) */}
-      <div className="bg-white border-[1.5px] border-slate-900 rounded-[6px] px-3 py-1.5 flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5 shadow-sm min-h-[50px]">
-        {/* Left: Example Loader */}
-        <div className="flex items-center gap-2">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
-            {t("editor.loadExample")}:
-          </label>
-          <select
-            onChange={(e) => handleLoadExample(e.target.value)}
-            defaultValue="DEV_NEGATION"
-            className="h-8 px-2 text-xs font-medium text-slate-900 border border-slate-300 rounded-[6px] bg-white focus:border-[#2154F4] focus:ring-1 focus:ring-[#2154F4] transition-colors max-w-[190px] sm:max-w-xs"
-          >
-            <option value="DEV_NEGATION">DEV_NEGATION (Negation dropped)</option>
-            <option value="DEV_VERB">DEV_VERB (Verb mismatch)</option>
-            <option value="DEV_CLEAN">DEV_CLEAN (Clean math control)</option>
-            <option value="DEV_UNCERTAIN">DEV_UNCERTAIN (Ambiguous)</option>
-            <option value="DEV_STRUCTURE">DEV_STRUCTURE (Count mismatch)</option>
-          </select>
-        </div>
-
-        {/* Center: Mode Segmented Control + Operator Trigger */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-100 border border-slate-200 rounded-[6px] p-0.5">
-            <button
-              type="button"
-              onClick={() => dispatch({ type: "SET_MODE", payload: "rules" })}
-              className={`px-3 py-1.5 text-xs font-bold rounded-[4px] min-h-[36px] transition-all flex items-center justify-center ${
-                state.mode === "rules"
-                  ? "bg-white text-slate-900 shadow-sm font-extrabold"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {locale === "ta" ? "அமைப்புக் கட்டுப்பாடுகள்" : "Structure rules only"}
-            </button>
-            <button
-              type="button"
-              onClick={() => dispatch({ type: "SET_MODE", payload: "ai" })}
-              className={`px-3 py-1.5 text-xs font-bold rounded-[4px] min-h-[36px] transition-all flex items-center justify-center ${
-                state.mode === "ai"
-                  ? "bg-[#2154F4] text-white shadow-sm font-extrabold"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {locale === "ta" ? "பொருள்சார் AI ஆய்வு" : "Semantic AI Review"}
-            </button>
+      {/* 2. Compact Multi-Breakpoint Utility Bar */}
+      <div className="bg-white border-[1.5px] border-slate-900 rounded-[6px] p-2.5 sm:px-3 sm:py-2 shadow-sm space-y-2.5">
+        {/* Row 1: Primary Controls (Example Loader + Mode Selector + Operator Key) */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+          {/* Left: Example Loader */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
+              {t("editor.loadExample")}:
+            </label>
+            <ExampleSelector
+              selectedId={activeExampleId}
+              onSelect={handleLoadExample}
+              disabled={state.isAnalyzing}
+            />
           </div>
 
-          {/* Operator Demo Code Trigger */}
-          <button
-            type="button"
-            onClick={() => setShowCodeInput(!showCodeInput)}
-            className={`min-h-[36px] min-w-[36px] p-2 rounded-[6px] flex items-center justify-center transition-colors border ${
-              showCodeInput || state.demoCode
-                ? "bg-blue-50 text-[#2154F4] border-blue-200"
-                : "text-slate-500 hover:text-slate-800 border-transparent hover:bg-slate-100"
-            }`}
-            title={t("privacy.code")}
-          >
-            <KeyRound className="w-4 h-4" />
-          </button>
-
-          {/* AI Consent Checkbox (inline when AI mode active) */}
-          {state.mode === "ai" && (
-            <div className="flex items-center gap-1.5 pl-1 text-xs">
-              <input
-                type="checkbox"
-                id="ai-consent"
-                checked={state.consent}
-                onChange={(e) =>
-                  dispatch({ type: "SET_CONSENT", payload: e.target.checked })
-                }
-                className="w-3.5 h-3.5 rounded border-slate-300 text-[#2154F4] focus:ring-[#2154F4]"
-              />
-              <label htmlFor="ai-consent" className="font-semibold text-slate-700 cursor-pointer text-[11px]">
-                {t("privacy.consent")}
-              </label>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Primary Run CTA & Secondary Utilities */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Primary Run CTA */}
-          {state.isAnalyzing ? (
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="h-8.5 px-3.5 text-xs font-bold bg-[#FEF2F2] text-[#DC2626] border border-red-300 rounded-[6px] hover:bg-red-100 flex items-center gap-1.5 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>{t("actions.cancel")}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleRunAnalysis}
-              className="neobrutal-btn neobrutal-btn-primary h-8.5 px-4 text-xs font-bold bg-[#2154F4] hover:bg-[#1D4ED8] text-white rounded-[6px] border border-slate-900 shadow-[2px_2px_0_#0F172A] flex items-center gap-1.5 transition-all"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>{state.mode === "ai" ? t("actions.analyze") : t("actions.rules")}</span>
-            </button>
-          )}
-
-          {state.isAnalyzing && (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2154F4]" />
-              <span>{t("status.checking")}</span>
-            </span>
-          )}
-
-          {/* Download CSV Report */}
-          <div className="flex items-center border border-slate-300 rounded-[6px] bg-white overflow-hidden">
-            <button
-              type="button"
-              onClick={() => handleDownloadCsv("all")}
-              className="h-8.5 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
-              title="Download full findings as CSV"
-            >
-              <Download className="w-3.5 h-3.5 text-[#2154F4]" />
-              <span>{t("actions.downloadCsv")}</span>
-            </button>
-            {activeFilter !== "all" && (
+          {/* Center/Right: Mode Segmented Control + Operator Trigger + AI Consent */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center bg-slate-100 border border-slate-200 rounded-[6px] p-0.5">
               <button
                 type="button"
-                onClick={() => handleDownloadCsv("filtered")}
-                className="h-8.5 px-2 text-[10px] border-l border-slate-200 font-semibold text-slate-600 hover:bg-blue-50 transition-colors"
-                title="Download filtered only"
+                onClick={() => dispatch({ type: "SET_MODE", payload: "rules" })}
+                className={`px-3 py-1.5 text-xs font-bold rounded-[4px] min-h-[36px] transition-all flex items-center justify-center ${
+                  state.mode === "rules"
+                    ? "bg-white text-slate-900 shadow-sm font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
               >
-                Filtered
+                {locale === "ta" ? "அமைப்புக் கட்டுப்பாடுகள்" : "Structure rules only"}
               </button>
+              <button
+                type="button"
+                onClick={() => dispatch({ type: "SET_MODE", payload: "ai" })}
+                className={`px-3 py-1.5 text-xs font-bold rounded-[4px] min-h-[36px] transition-all flex items-center justify-center ${
+                  state.mode === "ai"
+                    ? "bg-[#2154F4] text-white shadow-sm font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {locale === "ta" ? "பொருள்சார் AI ஆய்வு" : "Semantic AI Review"}
+              </button>
+            </div>
+
+            {/* Operator Demo Code Trigger */}
+            <button
+              type="button"
+              onClick={() => setShowCodeInput(!showCodeInput)}
+              className={`min-h-[36px] min-w-[36px] p-2 rounded-[6px] flex items-center justify-center transition-colors border ${
+                showCodeInput || state.demoCode
+                  ? "bg-blue-50 text-[#2154F4] border-blue-200"
+                  : "text-slate-500 hover:text-slate-800 border-transparent hover:bg-slate-100"
+              }`}
+              title={t("privacy.code")}
+            >
+              <KeyRound className="w-4 h-4" />
+            </button>
+
+            {/* AI Consent Checkbox (inline when AI mode active) */}
+            {state.mode === "ai" && (
+              <div className="flex items-center gap-1.5 pl-1 text-xs">
+                <input
+                  type="checkbox"
+                  id="ai-consent"
+                  checked={state.consent}
+                  onChange={(e) =>
+                    dispatch({ type: "SET_CONSENT", payload: e.target.checked })
+                  }
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-[#2154F4] focus:ring-[#2154F4]"
+                />
+                <label htmlFor="ai-consent" className="font-semibold text-slate-700 cursor-pointer text-[11px]">
+                  {t("privacy.consent")}
+                </label>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Actions & Utilities */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+          {/* Primary Action Button */}
+          <div className="flex items-center gap-2">
+            {state.isAnalyzing ? (
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="h-8.5 px-3.5 text-xs font-bold bg-[#FEF2F2] text-[#DC2626] border border-red-300 rounded-[6px] hover:bg-red-100 flex items-center gap-1.5 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>{t("actions.cancel")}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleRunAnalysis}
+                className="neobrutal-btn neobrutal-btn-primary h-8.5 px-4 text-xs font-bold bg-[#2154F4] hover:bg-[#1D4ED8] text-white rounded-[6px] border border-slate-900 shadow-[2px_2px_0_#0F172A] flex items-center gap-1.5 transition-all"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>{state.mode === "ai" ? t("actions.analyze") : t("actions.rules")}</span>
+              </button>
+            )}
+
+            {state.isAnalyzing && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2154F4]" />
+                <span>{t("status.checking")}</span>
+              </span>
             )}
           </div>
 
-          {/* Copy Issue List */}
-          <button
-            type="button"
-            onClick={handleCopySummary}
-            className="h-8.5 px-2.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-[6px] flex items-center gap-1.5 transition-colors"
-            title={t("actions.copy")}
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700 font-bold">{t("actions.copied")}</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-slate-500" />
-                <span>{t("actions.copy")}</span>
-              </>
-            )}
-          </button>
+          {/* Secondary Utilities: CSV, Copy, Reset */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Download CSV Report */}
+            <div className="flex items-center border border-slate-300 rounded-[6px] bg-white overflow-hidden">
+              <button
+                type="button"
+                onClick={() => handleDownloadCsv("all")}
+                className="h-8.5 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
+                title="Download full findings as CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-[#2154F4]" />
+                <span>{t("actions.downloadCsv")}</span>
+              </button>
+              {activeFilter !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCsv("filtered")}
+                  className="h-8.5 px-2 text-[10px] border-l border-slate-200 font-semibold text-slate-600 hover:bg-blue-50 transition-colors"
+                  title="Download filtered only"
+                >
+                  Filtered
+                </button>
+              )}
+            </div>
 
-          {/* Reset All */}
-          <button
-            type="button"
-            onClick={() => setShowResetConfirm(true)}
-            className="h-8.5 px-2 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-300 rounded-[6px] flex items-center justify-center transition-colors"
-            title={t("actions.reset")}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
+            {/* Copy Issue List */}
+            <button
+              type="button"
+              onClick={handleCopySummary}
+              className="h-8.5 px-2.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-[6px] flex items-center gap-1.5 transition-colors"
+              title={t("actions.copy")}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700 font-bold">{t("actions.copied")}</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{t("actions.copy")}</span>
+                </>
+              )}
+            </button>
+
+            {/* Reset All */}
+            <button
+              type="button"
+              onClick={() => setShowResetConfirm(true)}
+              className="h-8.5 px-2 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-300 rounded-[6px] flex items-center justify-center transition-colors"
+              title={t("actions.reset")}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 

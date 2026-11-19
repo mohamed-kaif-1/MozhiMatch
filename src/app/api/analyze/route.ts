@@ -15,10 +15,9 @@ import { checkStructuralRules, isStructurallyBlocked } from "../../../lib/core/r
 import { validateItemComparisons } from "../../../lib/core/evidence";
 import {
   validateOrigin,
-  validateDemoCode,
-  validateDemoAllowlist,
+  validateAnalyzeAIAccess,
 } from "../../../lib/server/access";
-import { enforceRateLimit } from "../../../lib/server/ratelimit";
+import { enforceRateLimit, enforceGlobalAIBudget } from "../../../lib/server/ratelimit";
 import { callGeminiSemanticReview } from "../../../lib/ai/gemini";
 
 function errorResponse(
@@ -102,20 +101,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(403, originCheck.errorCode, originCheck.messageKey, requestId);
   }
 
-  // 6. If AI mode requested: check consent, demo code, and demo allowlist
+  // 6. If AI mode requested: check consent, global budget, and AI access
   if (mode === "ai") {
     if (!consent) {
       return errorResponse(422, "CONSENT_REQUIRED", "errors.consentRequired", requestId);
     }
 
-    const demoCodeCheck = validateDemoCode(request.headers.get("x-demo-code"));
-    if (!demoCodeCheck.authorized && demoCodeCheck.errorCode && demoCodeCheck.messageKey) {
-      return errorResponse(401, demoCodeCheck.errorCode, demoCodeCheck.messageKey, requestId);
+    // Global AI Request Budget check
+    const budgetCheck = await enforceGlobalAIBudget("analyze");
+    if (!budgetCheck.allowed) {
+      return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", requestId, {
+        "Retry-After": String(budgetCheck.retryAfterSeconds ?? 3600),
+        "X-RateLimit-Limit": String(budgetCheck.limit),
+        "X-RateLimit-Remaining": "0",
+      });
     }
 
-    const allowlistCheck = validateDemoAllowlist(items);
-    if (!allowlistCheck.authorized && allowlistCheck.errorCode && allowlistCheck.messageKey) {
-      return errorResponse(403, allowlistCheck.errorCode, allowlistCheck.messageKey, requestId);
+    const aiAccessCheck = validateAnalyzeAIAccess(items, request.headers.get("x-demo-code"));
+    if (!aiAccessCheck.authorized && aiAccessCheck.errorCode && aiAccessCheck.messageKey) {
+      const status = aiAccessCheck.errorCode === "UNAUTHORIZED_DEMO" ? 401 : 403;
+      return errorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
     }
   }
 

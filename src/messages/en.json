@@ -103,6 +103,7 @@
     "forbiddenOrigin": "This deployment address needs configuration.",
     "unauthorizedDemo": "Enter the correct private operator code for live AI.",
     "demoRestricted": "Load an original demo sample for hosted live AI.",
+    "demoInputRestricted": "Load an original demo sample for hosted live AI. Custom questions require structure checks or private operator access.",
     "consentRequired": "Confirm permission before sending text to AI.",
     "rateLimited": "Too many requests. Wait before trying again.",
     "internal": "The request could not be completed. Your text is retained.",

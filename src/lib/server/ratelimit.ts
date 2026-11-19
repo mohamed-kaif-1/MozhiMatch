@@ -7,6 +7,7 @@ export interface RateLimitResult {
   remaining: number;
   resetSeconds: number;
   retryAfterSeconds?: number;
+  isBudgetExceeded?: boolean;
 }
 
 export interface RateLimitOptions {
@@ -21,8 +22,12 @@ interface WindowEntry {
 // In-memory sliding window cache for local development and warm serverless containers
 const inMemoryStore = new Map<string, WindowEntry>();
 
+// Global budget in-memory counter
+const inMemoryBudgetStore = new Map<string, { count: number; expiresAt: number }>();
+
 export function resetRateLimitStore(): void {
   inMemoryStore.clear();
+  inMemoryBudgetStore.clear();
 }
 
 export function getClientIp(request: Request): string {
@@ -100,7 +105,7 @@ export function checkInMemoryRateLimit(
   };
 }
 
-async function checkUpstashRateLimit(
+async function checkUpstashAtomic(
   url: string,
   token: string,
   key: string,
@@ -108,6 +113,10 @@ async function checkUpstashRateLimit(
 ): Promise<RateLimitResult | null> {
   try {
     const pipelineUrl = `${url.replace(/\/$/, "")}/pipeline`;
+    // Atomic multi-command pipeline:
+    // 1. INCR key
+    // 2. EXPIRE key windowSeconds NX (atomically sets expiry only on first increment)
+    // 3. TTL key (returns remaining lifetime)
     const res = await fetch(pipelineUrl, {
       method: "POST",
       headers: {
@@ -116,9 +125,10 @@ async function checkUpstashRateLimit(
       },
       body: JSON.stringify([
         ["INCR", key],
+        ["EXPIRE", key, options.windowSeconds, "NX"],
         ["TTL", key],
       ]),
-      signal: AbortSignal.timeout(1500),
+      signal: AbortSignal.timeout(2000),
     });
 
     if (!res.ok) {
@@ -126,23 +136,13 @@ async function checkUpstashRateLimit(
     }
 
     const data = (await res.json()) as Array<{ result?: unknown; error?: string }>;
-    if (!Array.isArray(data) || data.length < 2) {
+    if (!Array.isArray(data) || data.length < 3) {
       return null;
     }
 
     const count = Number(data[0].result);
-    let ttl = Number(data[1].result);
-
-    // If key has no expiration set (-1), set it to the window
-    if (ttl === -1 || ttl === -2) {
-      ttl = options.windowSeconds;
-      fetch(`${url.replace(/\/$/, "")}/expire/${encodeURIComponent(key)}/${options.windowSeconds}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(1000),
-      }).catch(() => {});
-    }
-
-    const resetSeconds = ttl > 0 ? ttl : options.windowSeconds;
+    const ttlRaw = Number(data[2].result);
+    const resetSeconds = ttlRaw > 0 ? ttlRaw : options.windowSeconds;
 
     if (count > options.maxRequests) {
       return {
@@ -174,9 +174,23 @@ export async function checkRateLimit(
   const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (redisUrl && redisToken) {
-    const remoteResult = await checkUpstashRateLimit(redisUrl, redisToken, key, options);
+    const remoteResult = await checkUpstashAtomic(redisUrl, redisToken, key, options);
     if (remoteResult) {
       return remoteResult;
+    }
+
+    // Fail closed in public_demo if strict shared quota is required and Redis call fails
+    if (
+      process.env.DEPLOYMENT_MODE === "public_demo" &&
+      process.env.REQUIRE_SHARED_QUOTA === "true"
+    ) {
+      return {
+        allowed: false,
+        limit: options.maxRequests,
+        remaining: 0,
+        resetSeconds: 60,
+        retryAfterSeconds: 60,
+      };
     }
   }
 
@@ -207,3 +221,74 @@ export async function enforceRateLimit(
   return checkRateLimit(key, options);
 }
 
+export async function enforceGlobalAIBudget(
+  endpoint: "analyze" | "correction",
+  customBudget?: number
+): Promise<RateLimitResult> {
+  const budgetLimit =
+    customBudget ??
+    (Number(process.env.GLOBAL_AI_MAX_REQUESTS) || 300);
+
+  const todayKey = `mm_global_ai_budget:${new Date().toISOString().slice(0, 10)}`;
+  const windowSeconds = 86400; // 24 hours
+
+  const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (redisUrl && redisToken) {
+    const remoteResult = await checkUpstashAtomic(redisUrl, redisToken, todayKey, {
+      maxRequests: budgetLimit,
+      windowSeconds,
+    });
+    if (remoteResult) {
+      if (!remoteResult.allowed) {
+        return { ...remoteResult, isBudgetExceeded: true };
+      }
+      return remoteResult;
+    }
+
+    if (
+      process.env.DEPLOYMENT_MODE === "public_demo" &&
+      process.env.REQUIRE_SHARED_QUOTA === "true"
+    ) {
+      return {
+        allowed: false,
+        limit: budgetLimit,
+        remaining: 0,
+        resetSeconds: windowSeconds,
+        retryAfterSeconds: windowSeconds,
+        isBudgetExceeded: true,
+      };
+    }
+  }
+
+  // In-memory global budget fallback
+  const now = Date.now();
+  let entry = inMemoryBudgetStore.get(todayKey);
+  if (!entry || entry.expiresAt < now) {
+    entry = { count: 0, expiresAt: now + windowSeconds * 1000 };
+    inMemoryBudgetStore.set(todayKey, entry);
+  }
+
+  entry.count += 1;
+  const remaining = Math.max(0, budgetLimit - entry.count);
+  const resetSeconds = Math.ceil((entry.expiresAt - now) / 1000);
+
+  if (entry.count > budgetLimit) {
+    return {
+      allowed: false,
+      limit: budgetLimit,
+      remaining: 0,
+      resetSeconds,
+      retryAfterSeconds: resetSeconds,
+      isBudgetExceeded: true,
+    };
+  }
+
+  return {
+    allowed: true,
+    limit: budgetLimit,
+    remaining,
+    resetSeconds,
+  };
+}

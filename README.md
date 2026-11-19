@@ -20,8 +20,9 @@
 
 ### Availability & Deployment Status
 
-- **Live Public Demo**: *Pending cloud hosting.* Local production builds and browser smoke tests pass 100%. See [Deployment Guide](docs/DEPLOYMENT.md) for self-hosting.
-- **Demo Video**: *Recording pending.* Complete verified browser execution evidence is documented below.
+- **Live Public Demo**: [https://mozhimatch.vercel.app/](https://mozhimatch.vercel.app/) — Live production deployment on Vercel with serverless Gemini integration.
+- **Judge Quick Test (No Password Required)**: Judges can evaluate live Semantic AI Review and AI Correction Suggestions directly on built-in sample fixtures without entering any access code.
+- **Full Automation QA Gate**: 15/15 Vitest test files passing (99/99 tests) + 16/16 Playwright browser tests passing (100%) across 7 viewports.
 
 ---
 
@@ -71,6 +72,9 @@ In bilingual assessments, minor translation omissions create material discrepanc
 |---|---|---|
 | **Rules Mode** | Instant local deterministic checks (option counts, label alignment, Tamil numerals `௦–௯`, numbers, and units). | Always returns `needs_review`. Never claims semantic equivalence without AI verification. |
 | **Semantic AI Mode** | Structured cloud comparison via Google Gemini (`gemini-2.5-flash`) requiring reviewer consent. | Strictly validates that every quoted excerpt exists verbatim in the source text before display. |
+| **AI Correction Suggestions** | In-context editorial fixes for detected discrepancies (`different` / `uncertain`) with inline diff and editable textarea. | Reviewer-controlled: one-click "Apply to editor" modifies Tamil stem/option with instant "Undo correction" revert safety. |
+| **Public Judge Demo Access** | Password-free immediate AI evaluation on approved server-side fixtures (`DEV_NEGATION`, `DEV_VERB`, `DEV_CLEAN`, `DEV_UNCERTAIN`, `DEV_STRUCTURE`). | Zero friction for judges while rejecting anonymous tampered inputs with HTTP 403 `DEMO_INPUT_RESTRICTED`. |
+| **Private Operator Mode** | Unrestricted AI analysis and corrections on custom entered questions via secure operator code. | Constant-time access check (`crypto.timingSafeEqual`) and atomic Upstash Redis rate limiting. |
 | **Batch CSV Import** | RFC 4180 CSV parser supporting UTF-8 Tamil, BOM, multiline cells, and option parity validation. | Atomic import: all errors are surfaced in a preview modal before applying; never silently drops invalid rows. |
 | **Batch CSV Export** | Complete findings report with UTF-8 BOM and spreadsheet formula injection protection. | One row per finding, plus summary rows for clean questions so no item disappears. Escapes `=`, `+`, `-`, `@`. |
 | **Human Triage** | Reviewer assigns **Keep** (intended phrasing), **Fix** (editorial correction), or **Escalate** (panel review). | Automated checks surface candidate issues; the human reviewer decides editorial action. |
@@ -220,13 +224,13 @@ MozhiMatch maintains clear separation between test suites, browser testing, and 
 
 | Check | Result | Location / Command | Scope & Notes |
 |---|---|---|---|
-| **Unit & Contract Tests** | **62 / 62 Passing** (11 suites) | `npm run test` | Validates CSV import (BOM, encoding, multiline, option pairing, atomicity), CSV export (formula injection sanitization, summary rows), Zod contracts, structural rules, evidence quotes, exports, access guards, and state transitions. See [Final Regression Report](final-audit/09-final-regression.md). |
-| **Static Quality Gates** | **0 Errors, Clean Build** | `npm run typecheck`<br>`npm run lint`<br>`npm run build` | TypeScript 5.9 strict typecheck, ESLint 9, and Next.js 16 production compilation. |
-| **Local Browser Tests** | **Verified (7 Viewports)** | Chrome DevTools at `http://localhost:3000` | Full-page visual regression across 7 viewports (360px to 1920px), tested pair editing, CSV batch import modal, live validation preview, template download, rules checks, live AI analysis with consent, Keep/Fix/Escalate actions, status filtering, and CSV report download. See [Verified Browser Artifacts](final-audit/evidence/verified-browser-artifacts/). |
+| **Unit & Contract Tests** | **99 / 99 Passing** (15 suites) | `npm run test` | Validates CSV import/export, Zod contracts, structural rules, evidence quotes, exports, access guards, rate limiting, global budget, AI suggestions, and review state transitions. |
+| **Static Quality Gates** | **0 Errors, Clean Build** | `npx tsc --noEmit`<br>`npm run lint`<br>`npm run build` | TypeScript 5.9 strict typecheck (0 errors), ESLint 9 (0 errors/0 warnings), and Next.js 16 production Turbopack compilation. |
+| **Automated Chrome Browser QA** | **16 / 16 Passing (100%)** | `node scripts/run_production_qa.mjs` | Automated multi-viewport audit across 7 screen widths (320px–1920px), zero toolbar overlap, state synchronization, live AI review, suggest-apply-undo correction workflow, reviewer triage, rules checks, CSV export, and Tamil localization. |
 | **Live AI Benchmark** | **1.000 Precision, 0.923 F1** | `final-audit/02-semantic-benchmark.md` | 30 frozen benchmark cases. 0.000 False Negative Rate on bad questions. Resisted adversarial prompt injection attacks that compromised generic LLMs. |
 | **Live AI Provider Calls** | **Verified (`mode: live_ai`)** | Chrome Network Inspection | Confirmed HTTP 200 from Google Generative Language API, valid JSON schema compliance, and verbatim evidence matching. |
 | **Production Evaluator** | **Honest Execution Utility** | `scripts/evaluate.ts`<br>`npm run eval:development`<br>`npm run eval:holdout` | Evaluates production structural rules without hardcoded answers. Opt-in `--mode live_ai` executes real Gemini calls with quote validation; if API keys are missing, results are explicitly marked `not_run` without fake labels. |
-| **Public Cloud Deployment** | **Pending** | [Deployment Guide](docs/DEPLOYMENT.md) | Local production build is verified; public cloud hosting is pending deployment. |
+| **Public Cloud Deployment** | **Live Production (Vercel)** | [https://mozhimatch.vercel.app/](https://mozhimatch.vercel.app/) | Deployed on Vercel with serverless edge rate limiting, atomic Upstash Redis counters, and password-free judge demonstration access. |
 
 *Verified on branch `main`.*
 

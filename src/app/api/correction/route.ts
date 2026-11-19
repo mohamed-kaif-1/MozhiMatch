@@ -4,10 +4,9 @@ import { ErrorResponse } from "../../../lib/contracts/types";
 import { APP_LIMITS } from "../../../lib/contracts/config";
 import {
   validateOrigin,
-  validateDemoCode,
-  validateCorrectionAllowlist,
+  validateCorrectionAIAccess,
 } from "../../../lib/server/access";
-import { enforceRateLimit } from "../../../lib/server/ratelimit";
+import { enforceRateLimit, enforceGlobalAIBudget } from "../../../lib/server/ratelimit";
 import { generateCorrection } from "../../../lib/ai/correction";
 
 export const dynamic = "force-dynamic";
@@ -99,15 +98,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(422, "CONSENT_REQUIRED", "errors.consentRequired", requestId);
   }
 
-  const demoCodeCheck = validateDemoCode(request.headers.get("x-demo-code"));
-  if (!demoCodeCheck.authorized && demoCodeCheck.errorCode && demoCodeCheck.messageKey) {
-    return errorResponse(401, demoCodeCheck.errorCode, demoCodeCheck.messageKey, requestId);
+  // Global AI Request Budget check
+  const budgetCheck = await enforceGlobalAIBudget("correction");
+  if (!budgetCheck.allowed) {
+    return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", requestId, {
+      "Retry-After": String(budgetCheck.retryAfterSeconds ?? 3600),
+      "X-RateLimit-Limit": String(budgetCheck.limit),
+      "X-RateLimit-Remaining": "0",
+    });
   }
 
-  // 8. Public demo sample allowlist verification (Server-owned content validation)
-  const allowlistCheck = validateCorrectionAllowlist(reqData);
-  if (!allowlistCheck.authorized && allowlistCheck.errorCode && allowlistCheck.messageKey) {
-    return errorResponse(403, allowlistCheck.errorCode, allowlistCheck.messageKey, requestId);
+  const aiAccessCheck = validateCorrectionAIAccess(reqData, request.headers.get("x-demo-code"));
+  if (!aiAccessCheck.authorized && aiAccessCheck.errorCode && aiAccessCheck.messageKey) {
+    const status = aiAccessCheck.errorCode === "UNAUTHORIZED_DEMO" ? 401 : 403;
+    return errorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
   }
 
   // 9. Generate correction

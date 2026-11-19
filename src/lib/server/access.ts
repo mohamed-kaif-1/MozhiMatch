@@ -251,3 +251,93 @@ export function validateCorrectionAllowlist(
 
   return { authorized: true };
 }
+
+export function validateAnalyzeAIAccess(
+  items: QuestionItem[],
+  providedCode: string | null,
+  options?: {
+    expectedCode?: string;
+    deploymentMode?: string;
+    aiMode?: string;
+  }
+): AccessCheckResult {
+  const mode = options?.deploymentMode || process.env.DEPLOYMENT_MODE;
+  const expectedCode =
+    options?.expectedCode !== undefined ? options.expectedCode : process.env.DEMO_ACCESS_CODE;
+
+  // 1. If an operator code is provided, verify it strictly
+  if (providedCode && providedCode.trim().length > 0) {
+    if (!expectedCode || !timingSafeStringEqual(providedCode, expectedCode)) {
+      return {
+        authorized: false,
+        errorCode: "UNAUTHORIZED_DEMO",
+        messageKey: "errors.unauthorizedDemo",
+      };
+    }
+    return { authorized: true };
+  }
+
+  // 2. Anonymous Judge Mode (Public Demo - No Password Required):
+  // Judges can freely test approved built-in examples
+  const allAllowlisted = items.every(isItemInAllowlist);
+  if (allAllowlisted) {
+    return { authorized: true };
+  }
+
+  // In local mode without configured code, allow custom items for dev
+  if (mode !== "public_demo" && (!expectedCode || expectedCode.trim().length === 0)) {
+    return { authorized: true };
+  }
+
+  // Restrict unapproved / custom inputs in public demo without operator code
+  return {
+    authorized: false,
+    errorCode: "DEMO_INPUT_RESTRICTED",
+    messageKey: "errors.demoInputRestricted",
+  };
+}
+
+export function validateCorrectionAIAccess(
+  req: CorrectionRequest,
+  providedCode: string | null,
+  options?: {
+    expectedCode?: string;
+    deploymentMode?: string;
+    aiMode?: string;
+  }
+): AccessCheckResult {
+  const mode = options?.deploymentMode || process.env.DEPLOYMENT_MODE;
+  const expectedCode =
+    options?.expectedCode !== undefined ? options.expectedCode : process.env.DEMO_ACCESS_CODE;
+
+  // 1. If an operator code is provided, verify it strictly
+  if (providedCode && providedCode.trim().length > 0) {
+    if (!expectedCode || !timingSafeStringEqual(providedCode, expectedCode)) {
+      return {
+        authorized: false,
+        errorCode: "UNAUTHORIZED_DEMO",
+        messageKey: "errors.unauthorizedDemo",
+      };
+    }
+    return { authorized: true };
+  }
+
+  // 2. Anonymous Judge Mode (Public Demo - No Password Required):
+  // Check against server-owned sample content
+  const sampleCheck = validateCorrectionAllowlist(req, "public_demo");
+  if (sampleCheck.authorized) {
+    return { authorized: true };
+  }
+
+  // In local mode without configured code, allow custom items for dev
+  if (mode !== "public_demo" && (!expectedCode || expectedCode.trim().length === 0)) {
+    return { authorized: true };
+  }
+
+  return {
+    authorized: false,
+    errorCode: "DEMO_INPUT_RESTRICTED",
+    messageKey: "errors.demoInputRestricted",
+  };
+}
+

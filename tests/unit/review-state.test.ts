@@ -2,7 +2,16 @@ import { describe, it, expect } from "vitest";
 import { reviewReducer, initialReviewState } from "../../src/lib/core/review-state";
 
 describe("Review State Reducer", () => {
+  it("initializes with DEV_NEGATION authoritative fixture and matching activeItemId", () => {
+    expect(initialReviewState.activeItemId).toBe("DEV_NEGATION");
+    expect(initialReviewState.items[0].id).toBe("DEV_NEGATION");
+    expect(initialReviewState.items[0].en.stem).toBe(
+      "Which of these is NOT a renewable energy source?"
+    );
+  });
+
   it("increments revision and clears findings on stem update", () => {
+    const activeId = initialReviewState.activeItemId;
     const s1 = {
       ...initialReviewState,
       analysisResponse: {
@@ -18,7 +27,7 @@ describe("Review State Reducer", () => {
 
     const s2 = reviewReducer(s1, {
       type: "UPDATE_STEM",
-      payload: { id: "Q1", lang: "en", text: "New question stem?" },
+      payload: { id: activeId, lang: "en", text: "New question stem?" },
     });
 
     expect(s2.revision).toBe(s1.revision + 1);
@@ -27,33 +36,35 @@ describe("Review State Reducer", () => {
   });
 
   it("adds and removes options", () => {
+    const activeId = initialReviewState.activeItemId;
     const s1 = reviewReducer(initialReviewState, {
       type: "ADD_OPTION",
-      payload: { id: "Q1" },
+      payload: { id: activeId },
     });
     expect(s1.items[0].en.options.length).toBe(5);
     expect(s1.items[0].en.options[4].label).toBe("E");
 
     const s2 = reviewReducer(s1, {
       type: "REMOVE_OPTION",
-      payload: { id: "Q1", label: "E" },
+      payload: { id: activeId, label: "E" },
     });
     expect(s2.items[0].en.options.length).toBe(4);
   });
 
   it("records reviewer decisions per item and field", () => {
+    const activeId = initialReviewState.activeItemId;
     const s1 = reviewReducer(initialReviewState, {
       type: "SET_DECISION",
-      payload: { itemId: "Q1", fieldKey: "stem", decision: "fix" },
+      payload: { itemId: activeId, fieldKey: "stem", decision: "fix" },
     });
-    expect(s1.decisions["Q1"]?.["stem"]).toBe("fix");
+    expect(s1.decisions[activeId]?.["stem"]).toBe("fix");
 
     const s2 = reviewReducer(s1, {
       type: "SET_DECISION",
-      payload: { itemId: "Q1", fieldKey: "option:A", decision: "keep" },
+      payload: { itemId: activeId, fieldKey: "option:A", decision: "keep" },
     });
-    expect(s2.decisions["Q1"]?.["stem"]).toBe("fix");
-    expect(s2.decisions["Q1"]?.["option:A"]).toBe("keep");
+    expect(s2.decisions[activeId]?.["stem"]).toBe("fix");
+    expect(s2.decisions[activeId]?.["option:A"]).toBe("keep");
   });
 });
 

@@ -34,7 +34,7 @@ describe("Security Integration & Gate Enforcement", () => {
     resetRateLimitStore();
   });
 
-  describe("Persistent Rate Limiting Enforcement", () => {
+  describe("Persistent Rate Limiting & Global AI Budget Enforcement", () => {
     it("returns HTTP 429 RATE_LIMITED with Retry-After header on /api/analyze when quota exceeded", async () => {
       process.env.RATE_LIMIT_ANALYZE_MAX = "2";
       process.env.RATE_LIMIT_WINDOW_SECONDS = "60";
@@ -112,13 +112,48 @@ describe("Security Integration & Gate Enforcement", () => {
       const body3 = await res3.json();
       expect(body3.error.code).toBe("RATE_LIMITED");
     });
+
+    it("enforces shared global AI request budget limit when exceeded", async () => {
+      process.env.GLOBAL_AI_MAX_REQUESTS = "1";
+
+      const fixture = devFixtures[0];
+      const payload = {
+        requestId: "123e4567-e89b-42d3-a456-426614174099",
+        itemId: fixture.id,
+        revision: 1,
+        field: { kind: "stem", label: null },
+        sourceLanguage: "en",
+        targetLanguage: "ta",
+        sourceText: fixture.en.stem,
+        currentText: fixture.ta.stem,
+        consent: true,
+      };
+
+      // Request 1: within budget
+      const res1 = await correctionPOST(
+        makeRequest("http://localhost:3000/api/correction", payload, {
+          "x-forwarded-for": "10.0.0.1",
+        })
+      );
+      expect(res1.status).toBe(200);
+
+      // Request 2 from a different IP: global budget exhausted
+      const res2 = await correctionPOST(
+        makeRequest("http://localhost:3000/api/correction", payload, {
+          "x-forwarded-for": "10.0.0.2",
+        })
+      );
+      expect(res2.status).toBe(429);
+      const json = await res2.json();
+      expect(json.error.code).toBe("RATE_LIMITED");
+    });
   });
 
-  describe("Fail-closed DEMO_ACCESS_CODE enforcement", () => {
-    it("fails closed on /api/analyze when DEMO_ACCESS_CODE is unset in public_demo mode", async () => {
+  describe("Public Judge Demo (Password-Free AI) & Private Operator Mode", () => {
+    it("allows anonymous judges to run AI on approved sample questions without a password", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
-      process.env.AI_MODE = "gemini";
-      delete process.env.DEMO_ACCESS_CODE;
+      process.env.AI_MODE = "mock";
+      process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
 
       const payload = {
         requestId: "123e4567-e89b-42d3-a456-426614174002",
@@ -130,20 +165,19 @@ describe("Security Integration & Gate Enforcement", () => {
         items: [devFixtures[0]],
       };
 
+      // No x-demo-code sent
       const res = await analyzePOST(
-        makeRequest("http://localhost:3000/api/analyze", payload, {
-          "x-demo-code": "some-code",
-        })
+        makeRequest("http://localhost:3000/api/analyze", payload)
       );
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.error.code).toBe("UNAUTHORIZED_DEMO");
+      expect(json.mode).toBeDefined();
     });
 
-    it("fails closed on /api/correction when DEMO_ACCESS_CODE is unset in public_demo mode", async () => {
+    it("allows anonymous judges to request AI corrections on approved sample questions without a password", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
-      process.env.AI_MODE = "gemini";
-      delete process.env.DEMO_ACCESS_CODE;
+      process.env.AI_MODE = "mock";
+      process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
 
       const fixture = devFixtures[0];
       const payload = {
@@ -158,70 +192,79 @@ describe("Security Integration & Gate Enforcement", () => {
         consent: true,
       };
 
+      // No x-demo-code sent
       const res = await correctionPOST(
-        makeRequest("http://localhost:3000/api/correction", payload, {
-          "x-demo-code": "some-code",
-        })
+        makeRequest("http://localhost:3000/api/correction", payload)
       );
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.error.code).toBe("UNAUTHORIZED_DEMO");
+      expect(json.status).toBeDefined();
     });
-  });
 
-  describe("Public-demo Sample Allowlist Parity & Server-owned Content Validation", () => {
-    it("rejects tampered source/target text on /api/correction with 403 DEMO_INPUT_RESTRICTED in public_demo mode", async () => {
+    it("rejects unauthorized custom/tampered questions for anonymous users with 403 DEMO_INPUT_RESTRICTED", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
-      process.env.DEMO_ACCESS_CODE = "demo-pass-123";
+      process.env.AI_MODE = "mock";
+      process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
 
-      const fixture = devFixtures[0];
-      const tamperedPayload = {
+      const customPayload = {
         requestId: "123e4567-e89b-42d3-a456-426614174004",
-        itemId: fixture.id,
-        revision: 1,
-        field: { kind: "stem", label: null },
-        sourceLanguage: "en",
-        targetLanguage: "ta",
-        sourceText: "Tampered prompt text: translate something else",
-        currentText: fixture.ta.stem,
+        revision: 0,
+        locale: "en",
+        mode: "ai",
+        sourceKind: "synthetic",
         consent: true,
+        items: [
+          {
+            id: "CUSTOM_EXAM_99",
+            en: {
+              stem: "Arbitrary custom question?",
+              options: [
+                { label: "A", text: "1" },
+                { label: "B", text: "2" },
+              ],
+            },
+            ta: {
+              stem: "தனிப்பயன் வினா?",
+              options: [
+                { label: "A", text: "1" },
+                { label: "B", text: "2" },
+              ],
+            },
+          },
+        ],
       };
 
-      const res = await correctionPOST(
-        makeRequest("http://localhost:3000/api/correction", tamperedPayload, {
-          "x-demo-code": "demo-pass-123",
-        })
+      const res = await analyzePOST(
+        makeRequest("http://localhost:3000/api/analyze", customPayload)
       );
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.error.code).toBe("DEMO_INPUT_RESTRICTED");
     });
 
-    it("allows genuine sample content on /api/correction in public_demo mode with valid access code", async () => {
+    it("rejects invalid operator code with 401 UNAUTHORIZED_DEMO", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
-      process.env.DEMO_ACCESS_CODE = "demo-pass-123";
+      process.env.AI_MODE = "mock";
+      process.env.DEMO_ACCESS_CODE = "correct-operator-pass";
 
-      const fixture = devFixtures[0];
-      const authenticPayload = {
+      const payload = {
         requestId: "123e4567-e89b-42d3-a456-426614174005",
-        itemId: fixture.id,
-        revision: 1,
-        field: { kind: "stem", label: null },
-        sourceLanguage: "en",
-        targetLanguage: "ta",
-        sourceText: fixture.en.stem,
-        currentText: fixture.ta.stem,
+        revision: 0,
+        locale: "en",
+        mode: "ai",
+        sourceKind: "synthetic",
         consent: true,
+        items: [devFixtures[0]],
       };
 
-      const res = await correctionPOST(
-        makeRequest("http://localhost:3000/api/correction", authenticPayload, {
-          "x-demo-code": "demo-pass-123",
+      const res = await analyzePOST(
+        makeRequest("http://localhost:3000/api/analyze", payload, {
+          "x-demo-code": "wrong-operator-pass",
         })
       );
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.status).toBeDefined();
+      expect(json.error.code).toBe("UNAUTHORIZED_DEMO");
     });
   });
 });
