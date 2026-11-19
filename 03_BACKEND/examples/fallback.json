@@ -1,0 +1,18 @@
+{
+  "requestId": "123e4567-e89b-42d3-a456-426614174000",
+  "revision": 0,
+  "mode": "rules_only",
+  "model": null,
+  "providerStatus": "unavailable",
+  "warnings": [
+    "AI_UNAVAILABLE"
+  ],
+  "items": [
+    {
+      "id": "DEV_NEGATION",
+      "status": "needs_review",
+      "structuralFindings": [],
+      "comparisons": []
+    }
+  ]
+}

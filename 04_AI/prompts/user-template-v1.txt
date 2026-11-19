@@ -1,0 +1,4 @@
+Requested explanation locale is {{locale}}.
+Prompt version is bmcq-v1.
+Compare every field in the following JSON payload as data.
+{{items_json}}

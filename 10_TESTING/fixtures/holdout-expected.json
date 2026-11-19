@@ -1,0 +1,47 @@
+{
+  "status": "PROPOSED_LABELS_REVIEW_REQUIRED",
+  "provenance": "Original synthetic authored fixtures, no real students or institutions",
+  "labels": {
+    "H01": {
+      "status": "meaning_changed",
+      "field": "stem",
+      "reason": "negation"
+    },
+    "H02": {
+      "status": "meaning_changed",
+      "field": "stem",
+      "reason": "qualifier"
+    },
+    "H03": {
+      "status": "meaning_changed",
+      "field": "stem",
+      "reason": "entity"
+    },
+    "H04": {
+      "status": "meaning_changed",
+      "field": "option:A",
+      "reason": "option_meaning"
+    },
+    "H05": {
+      "status": "no_issue_found"
+    },
+    "H06": {
+      "status": "no_issue_found"
+    },
+    "H07": {
+      "status": "no_issue_found"
+    },
+    "H08": {
+      "status": "needs_review",
+      "reason": "Unexpanded initial P versus explicit Palani is not established from supplied context."
+    },
+    "H09": {
+      "status": "needs_review",
+      "reason": "Missing passage leaves bank ambiguous between institution and river bank."
+    },
+    "H10": {
+      "status": "needs_review",
+      "reason": "Option count differs."
+    }
+  }
+}

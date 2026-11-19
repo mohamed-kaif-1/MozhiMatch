@@ -1,0 +1,45 @@
+{
+  "name": "bilingual-mcq-preflight",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "eval:development": "node --experimental-strip-types scripts/evaluate.ts --split development",
+    "eval:holdout": "node --experimental-strip-types scripts/evaluate.ts --split holdout"
+  },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7",
+    "next-intl": "4.15.1",
+    "lucide-react": "1.75.0",
+    "@fontsource/noto-sans-tamil": "5.3.0",
+    "@fontsource/geist": "5.3.0",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "tailwindcss": "4.3.5",
+    "@tailwindcss/postcss": "4.3.5",
+    "vitest": "5.1.1",
+    "@playwright/test": "1.65.1",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.6",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.5.0",
+    "vite": "^8.0.0"
+  }
+}

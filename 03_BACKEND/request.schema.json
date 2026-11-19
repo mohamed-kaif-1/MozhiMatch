@@ -1,0 +1,159 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "locale": {
+      "type": "string",
+      "enum": [
+        "en",
+        "ta"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "rules",
+        "ai"
+      ]
+    },
+    "sourceKind": {
+      "type": "string",
+      "enum": [
+        "synthetic",
+        "public",
+        "owned_practice"
+      ]
+    },
+    "consent": {
+      "type": "boolean"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,40}$"
+          },
+          "en": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "stem": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "options": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 5,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "enum": [
+                        "A",
+                        "B",
+                        "C",
+                        "D",
+                        "E"
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 400
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "text"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "stem",
+              "options"
+            ]
+          },
+          "ta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "stem": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "options": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 5,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "enum": [
+                        "A",
+                        "B",
+                        "C",
+                        "D",
+                        "E"
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 400
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "text"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "stem",
+              "options"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "en",
+          "ta"
+        ]
+      }
+    }
+  },
+  "required": [
+    "requestId",
+    "revision",
+    "locale",
+    "mode",
+    "sourceKind",
+    "consent",
+    "items"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

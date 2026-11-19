@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "INVALID_REQUEST",
+            "BODY_TOO_LARGE",
+            "UNSUPPORTED_MEDIA_TYPE",
+            "FORBIDDEN_ORIGIN",
+            "UNAUTHORIZED_DEMO",
+            "DEMO_INPUT_RESTRICTED",
+            "CONSENT_REQUIRED",
+            "RATE_LIMITED",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "messageKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "requestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "messageKey",
+        "requestId"
+      ]
+    }
+  },
+  "required": [
+    "error"
+  ]
+}

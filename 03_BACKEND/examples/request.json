@@ -1,0 +1,55 @@
+{
+  "requestId": "123e4567-e89b-42d3-a456-426614174000",
+  "revision": 0,
+  "locale": "en",
+  "mode": "ai",
+  "sourceKind": "synthetic",
+  "consent": true,
+  "items": [
+    {
+      "id": "DEV_NEGATION",
+      "en": {
+        "stem": "Which of these is NOT a renewable energy source?",
+        "options": [
+          {
+            "label": "A",
+            "text": "Solar"
+          },
+          {
+            "label": "B",
+            "text": "Wind"
+          },
+          {
+            "label": "C",
+            "text": "Coal"
+          },
+          {
+            "label": "D",
+            "text": "Hydropower"
+          }
+        ]
+      },
+      "ta": {
+        "stem": "இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?",
+        "options": [
+          {
+            "label": "A",
+            "text": "சூரிய ஆற்றல்"
+          },
+          {
+            "label": "B",
+            "text": "காற்று ஆற்றல்"
+          },
+          {
+            "label": "C",
+            "text": "நிலக்கரி"
+          },
+          {
+            "label": "D",
+            "text": "நீர்மின் ஆற்றல்"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+run_id,condition,fixture_id,split,provenance,expected_status,observed_status,material_hit,false_clear,false_alert,uncertain_escalated,evidence_valid,verification_seconds,model,prompt_hash,status,reviewer_notes
+planned-01,app,H01,holdout,synthetic,meaning_changed,,,,,,,,gemini-3.5-flash-lite,,NOT_RUN,

@@ -1,0 +1,448 @@
+[
+  {
+    "id": "H01",
+    "en": {
+      "stem": "Which material does NOT conduct electricity well?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Copper"
+        },
+        {
+          "label": "B",
+          "text": "Aluminium"
+        },
+        {
+          "label": "C",
+          "text": "Rubber"
+        },
+        {
+          "label": "D",
+          "text": "Iron"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "மின்சாரத்தை நன்கு கடத்தும் பொருள் எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "செம்பு"
+        },
+        {
+          "label": "B",
+          "text": "அலுமினியம்"
+        },
+        {
+          "label": "C",
+          "text": "ரப்பர்"
+        },
+        {
+          "label": "D",
+          "text": "இரும்பு"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H02",
+    "en": {
+      "stem": "Which rule applies only when the switch is closed?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Rule A"
+        },
+        {
+          "label": "B",
+          "text": "Rule B"
+        },
+        {
+          "label": "C",
+          "text": "Rule C"
+        },
+        {
+          "label": "D",
+          "text": "Rule D"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "சுவிட்ச் எந்த நிலையில் இருந்தாலும் பொருந்தும் விதி எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "விதி A"
+        },
+        {
+          "label": "B",
+          "text": "விதி B"
+        },
+        {
+          "label": "C",
+          "text": "விதி C"
+        },
+        {
+          "label": "D",
+          "text": "விதி D"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H03",
+    "en": {
+      "stem": "Which statement describes a task completed by the teacher?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Reading"
+        },
+        {
+          "label": "B",
+          "text": "Writing"
+        },
+        {
+          "label": "C",
+          "text": "Drawing"
+        },
+        {
+          "label": "D",
+          "text": "Counting"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "மாணவர் முடித்த பணியை விவரிக்கும் கூற்று எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "படித்தல்"
+        },
+        {
+          "label": "B",
+          "text": "எழுதுதல்"
+        },
+        {
+          "label": "C",
+          "text": "வரைதல்"
+        },
+        {
+          "label": "D",
+          "text": "எண்ணுதல்"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H04",
+    "en": {
+      "stem": "Which process turns liquid water into vapour?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Evaporation"
+        },
+        {
+          "label": "B",
+          "text": "Freezing"
+        },
+        {
+          "label": "C",
+          "text": "Condensation"
+        },
+        {
+          "label": "D",
+          "text": "Melting"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "திரவ நீரை நீராவியாக மாற்றும் செயல்முறை எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "உறைதல்"
+        },
+        {
+          "label": "B",
+          "text": "உறைதல்"
+        },
+        {
+          "label": "C",
+          "text": "ஒடுக்கம்"
+        },
+        {
+          "label": "D",
+          "text": "உருகுதல்"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H05",
+    "en": {
+      "stem": "Which instrument measures temperature?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Thermometer"
+        },
+        {
+          "label": "B",
+          "text": "Ruler"
+        },
+        {
+          "label": "C",
+          "text": "Clock"
+        },
+        {
+          "label": "D",
+          "text": "Balance"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "வெப்பநிலையை அளக்கும் கருவி எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "வெப்பமானி"
+        },
+        {
+          "label": "B",
+          "text": "அளவுகோல்"
+        },
+        {
+          "label": "C",
+          "text": "கடிகாரம்"
+        },
+        {
+          "label": "D",
+          "text": "தராசு"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H06",
+    "en": {
+      "stem": "Select the largest of the following numbers.",
+      "options": [
+        {
+          "label": "A",
+          "text": "15"
+        },
+        {
+          "label": "B",
+          "text": "21"
+        },
+        {
+          "label": "C",
+          "text": "8"
+        },
+        {
+          "label": "D",
+          "text": "13"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "பின்வரும் எண்களில் மிகப்பெரிய எண்ணைத் தேர்ந்தெடுக்கவும்.",
+      "options": [
+        {
+          "label": "A",
+          "text": "15"
+        },
+        {
+          "label": "B",
+          "text": "21"
+        },
+        {
+          "label": "C",
+          "text": "8"
+        },
+        {
+          "label": "D",
+          "text": "13"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H07",
+    "en": {
+      "stem": "Which option shows the symbol used for sodium?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Na"
+        },
+        {
+          "label": "B",
+          "text": "K"
+        },
+        {
+          "label": "C",
+          "text": "Ca"
+        },
+        {
+          "label": "D",
+          "text": "Fe"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "சோடியத்தைக் குறிக்கப் பயன்படும் குறியீடு எந்த விடைத் தெரிவில் உள்ளது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Na"
+        },
+        {
+          "label": "B",
+          "text": "K"
+        },
+        {
+          "label": "C",
+          "text": "Ca"
+        },
+        {
+          "label": "D",
+          "text": "Fe"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H08",
+    "en": {
+      "stem": "Which statement about P. Kumar is correct?",
+      "options": [
+        {
+          "label": "A",
+          "text": "He arrived first"
+        },
+        {
+          "label": "B",
+          "text": "He arrived second"
+        },
+        {
+          "label": "C",
+          "text": "He arrived third"
+        },
+        {
+          "label": "D",
+          "text": "He arrived last"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "பழனி குமாரைப் பற்றிய சரியான கூற்று எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "அவர் முதலில் வந்தார்"
+        },
+        {
+          "label": "B",
+          "text": "அவர் இரண்டாவதாக வந்தார்"
+        },
+        {
+          "label": "C",
+          "text": "அவர் மூன்றாவதாக வந்தார்"
+        },
+        {
+          "label": "D",
+          "text": "அவர் கடைசியாக வந்தார்"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H09",
+    "en": {
+      "stem": "Which bank is described in the passage?",
+      "options": [
+        {
+          "label": "A",
+          "text": "The northern bank"
+        },
+        {
+          "label": "B",
+          "text": "The southern bank"
+        },
+        {
+          "label": "C",
+          "text": "The eastern bank"
+        },
+        {
+          "label": "D",
+          "text": "The western bank"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "பத்தியில் விவரிக்கப்பட்ட வங்கி எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "வடக்குப் பகுதியிலுள்ள வங்கி"
+        },
+        {
+          "label": "B",
+          "text": "தெற்குப் பகுதியிலுள்ள வங்கி"
+        },
+        {
+          "label": "C",
+          "text": "கிழக்குப் பகுதியிலுள்ள வங்கி"
+        },
+        {
+          "label": "D",
+          "text": "மேற்குப் பகுதியிலுள்ள வங்கி"
+        }
+      ]
+    }
+  },
+  {
+    "id": "H10",
+    "en": {
+      "stem": "Which is an odd number?",
+      "options": [
+        {
+          "label": "A",
+          "text": "2"
+        },
+        {
+          "label": "B",
+          "text": "3"
+        },
+        {
+          "label": "C",
+          "text": "4"
+        },
+        {
+          "label": "D",
+          "text": "6"
+        }
+      ]
+    },
+    "ta": {
+      "stem": "ஒற்றை எண் எது?",
+      "options": [
+        {
+          "label": "A",
+          "text": "2"
+        },
+        {
+          "label": "B",
+          "text": "3"
+        },
+        {
+          "label": "C",
+          "text": "4"
+        }
+      ]
+    }
+  }
+]

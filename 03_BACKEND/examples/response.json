@@ -1,0 +1,117 @@
+{
+  "requestId": "123e4567-e89b-42d3-a456-426614174000",
+  "revision": 0,
+  "mode": "live_ai",
+  "model": "gemini-3.5-flash-lite",
+  "providerStatus": "ok",
+  "warnings": [],
+  "items": [
+    {
+      "id": "DEV_NEGATION",
+      "status": "meaning_changed",
+      "structuralFindings": [],
+      "comparisons": [
+        {
+          "field": {
+            "kind": "stem",
+            "label": null
+          },
+          "relation": "different",
+          "en": {
+            "start": 0,
+            "end": 48,
+            "text": "Which of these is NOT a renewable energy source?"
+          },
+          "ta": {
+            "start": 0,
+            "end": 44,
+            "text": "இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?"
+          },
+          "reasonCode": "negation",
+          "explanation": "The English stem asks for NOT renewable, while Tamil asks for renewable.",
+          "evidenceValid": true
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "A"
+          },
+          "relation": "equivalent",
+          "en": {
+            "start": 0,
+            "end": 5,
+            "text": "Solar"
+          },
+          "ta": {
+            "start": 0,
+            "end": 12,
+            "text": "சூரிய ஆற்றல்"
+          },
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved.",
+          "evidenceValid": true
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "B"
+          },
+          "relation": "equivalent",
+          "en": {
+            "start": 0,
+            "end": 4,
+            "text": "Wind"
+          },
+          "ta": {
+            "start": 0,
+            "end": 13,
+            "text": "காற்று ஆற்றல்"
+          },
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved.",
+          "evidenceValid": true
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "C"
+          },
+          "relation": "equivalent",
+          "en": {
+            "start": 0,
+            "end": 4,
+            "text": "Coal"
+          },
+          "ta": {
+            "start": 0,
+            "end": 8,
+            "text": "நிலக்கரி"
+          },
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved.",
+          "evidenceValid": true
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "D"
+          },
+          "relation": "equivalent",
+          "en": {
+            "start": 0,
+            "end": 10,
+            "text": "Hydropower"
+          },
+          "ta": {
+            "start": 0,
+            "end": 15,
+            "text": "நீர்மின் ஆற்றல்"
+          },
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved.",
+          "evidenceValid": true
+        }
+      ]
+    }
+  ]
+}

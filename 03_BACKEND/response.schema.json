@@ -1,0 +1,288 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "rules_only",
+        "live_ai"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "providerStatus": {
+      "type": "string",
+      "enum": [
+        "not_requested",
+        "ok",
+        "unavailable",
+        "timeout",
+        "invalid_response"
+      ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "AI_DISABLED",
+          "AI_UNAVAILABLE",
+          "AI_TIMEOUT",
+          "AI_INVALID_RESPONSE",
+          "UNSUPPORTED_CONTENT"
+        ]
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "meaning_changed",
+              "no_issue_found",
+              "needs_review"
+            ]
+          },
+          "structuralFindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "OPTION_COUNT_MISMATCH",
+                    "OPTION_LABEL_MISMATCH",
+                    "DUPLICATE_OPTION_LABEL",
+                    "NUMERIC_TOKEN_DIFFERENCE",
+                    "UNIT_TOKEN_DIFFERENCE"
+                  ]
+                },
+                "field": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "stem",
+                        "option"
+                      ]
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "A",
+                        "B",
+                        "C",
+                        "D",
+                        "E",
+                        null
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "label"
+                  ]
+                },
+                "enTokens": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "taTokens": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                }
+              },
+              "required": [
+                "code",
+                "field",
+                "enTokens",
+                "taTokens"
+              ]
+            }
+          },
+          "comparisons": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "stem",
+                        "option"
+                      ]
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "A",
+                        "B",
+                        "C",
+                        "D",
+                        "E",
+                        null
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "label"
+                  ]
+                },
+                "relation": {
+                  "type": "string",
+                  "enum": [
+                    "equivalent",
+                    "different",
+                    "uncertain"
+                  ]
+                },
+                "en": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "end": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "end",
+                    "text"
+                  ]
+                },
+                "ta": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "end": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "end",
+                    "text"
+                  ]
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "enum": [
+                    "equivalent",
+                    "negation",
+                    "entity",
+                    "qualifier",
+                    "option_meaning",
+                    "uncertain",
+                    "other_material_change"
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 600
+                },
+                "evidenceValid": {
+                  "const": true
+                }
+              },
+              "required": [
+                "field",
+                "relation",
+                "en",
+                "ta",
+                "reasonCode",
+                "explanation",
+                "evidenceValid"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "structuralFindings",
+          "comparisons"
+        ]
+      }
+    }
+  },
+  "required": [
+    "requestId",
+    "revision",
+    "mode",
+    "model",
+    "providerStatus",
+    "warnings",
+    "items"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

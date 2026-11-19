@@ -1,0 +1,64 @@
+{
+  "results": [
+    {
+      "itemId": "DEV_NEGATION",
+      "comparisons": [
+        {
+          "field": {
+            "kind": "stem",
+            "label": null
+          },
+          "relation": "different",
+          "enQuote": "Which of these is NOT a renewable energy source?",
+          "taQuote": "இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?",
+          "reasonCode": "negation",
+          "explanation": "The English stem asks for NOT renewable, while Tamil asks for renewable."
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "A"
+          },
+          "relation": "equivalent",
+          "enQuote": "Solar",
+          "taQuote": "சூரிய ஆற்றல்",
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved."
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "B"
+          },
+          "relation": "equivalent",
+          "enQuote": "Wind",
+          "taQuote": "காற்று ஆற்றல்",
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved."
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "C"
+          },
+          "relation": "equivalent",
+          "enQuote": "Coal",
+          "taQuote": "நிலக்கரி",
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved."
+        },
+        {
+          "field": {
+            "kind": "option",
+            "label": "D"
+          },
+          "relation": "equivalent",
+          "enQuote": "Hydropower",
+          "taQuote": "நீர்மின் ஆற்றல்",
+          "reasonCode": "equivalent",
+          "explanation": "The option meaning is preserved."
+        }
+      ]
+    }
+  ]
+}
