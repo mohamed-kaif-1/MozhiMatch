@@ -2,6 +2,7 @@ import "server-only";
 import crypto from "crypto";
 import devFixtures from "../../fixtures/development.json";
 import { QuestionItem, ErrorCode } from "../contracts/types";
+import { CorrectionRequest } from "../contracts/correction";
 
 // Constant-time string equality check using SHA-256 hashes
 export function timingSafeStringEqual(a: string, b: string): boolean {
@@ -65,9 +66,25 @@ export function validateOrigin(
 
 export function validateDemoCode(
   providedCode: string | null,
-  expectedCodeEnv?: string
+  expectedCodeEnv?: string,
+  deploymentModeEnv?: string,
+  aiModeEnv?: string
 ): AccessCheckResult {
+  const mode = deploymentModeEnv !== undefined ? deploymentModeEnv : process.env.DEPLOYMENT_MODE;
+  const aiMode = aiModeEnv !== undefined ? aiModeEnv : (process.env.AI_MODE || "off");
   const expectedCode = expectedCodeEnv !== undefined ? expectedCodeEnv : process.env.DEMO_ACCESS_CODE;
+
+  // Fail closed if DEMO_ACCESS_CODE is missing in public-demo mode when AI is enabled
+  if (mode === "public_demo" && aiMode !== "off") {
+    if (!expectedCode || expectedCode.trim().length === 0) {
+      return {
+        authorized: false,
+        errorCode: "UNAUTHORIZED_DEMO",
+        messageKey: "errors.unauthorizedDemo",
+      };
+    }
+  }
+
   // If no demo code configured on server, access is open (e.g. local development)
   if (!expectedCode || expectedCode.trim().length === 0) {
     return { authorized: true };
@@ -98,6 +115,31 @@ export function isItemInAllowlist(item: QuestionItem): boolean {
     if (fixture.id !== item.id) return false;
     if (fixture.en.stem.trim() !== item.en.stem.trim()) return false;
     if (fixture.ta.stem.trim() !== item.ta.stem.trim()) return false;
+
+    // Validate English options
+    if (!Array.isArray(item.en.options) || item.en.options.length !== fixture.en.options.length) {
+      return false;
+    }
+    for (let i = 0; i < fixture.en.options.length; i++) {
+      const fOpt = fixture.en.options[i];
+      const iOpt = item.en.options[i];
+      if (!iOpt || iOpt.label !== fOpt.label || iOpt.text.trim() !== fOpt.text.trim()) {
+        return false;
+      }
+    }
+
+    // Validate Tamil options
+    if (!Array.isArray(item.ta.options) || item.ta.options.length !== fixture.ta.options.length) {
+      return false;
+    }
+    for (let i = 0; i < fixture.ta.options.length; i++) {
+      const fOpt = fixture.ta.options[i];
+      const iOpt = item.ta.options[i];
+      if (!iOpt || iOpt.label !== fOpt.label || iOpt.text.trim() !== fOpt.text.trim()) {
+        return false;
+      }
+    }
+
     return true;
   });
 }
@@ -121,3 +163,91 @@ export function validateDemoAllowlist(
   return { authorized: true };
 }
 
+export function validateCorrectionAllowlist(
+  req: CorrectionRequest,
+  deploymentModeEnv?: string
+): AccessCheckResult {
+  const mode = deploymentModeEnv || process.env.DEPLOYMENT_MODE;
+  // In public_demo mode, AI corrections can only run on server-owned allowlisted sample content
+  if (mode === "public_demo") {
+    // 1. Locate the fixture by itemId
+    const fixture = devFixtures.find((f) => f.id === req.itemId);
+    if (!fixture) {
+      return {
+        authorized: false,
+        errorCode: "DEMO_INPUT_RESTRICTED",
+        messageKey: "errors.demoInputRestricted",
+      };
+    }
+
+    let expectedSource = "";
+    let expectedTarget = "";
+
+    if (req.field.kind === "stem") {
+      if (req.sourceLanguage === "en" && req.targetLanguage === "ta") {
+        expectedSource = fixture.en.stem;
+        expectedTarget = fixture.ta.stem;
+      } else if (req.sourceLanguage === "ta" && req.targetLanguage === "en") {
+        expectedSource = fixture.ta.stem;
+        expectedTarget = fixture.en.stem;
+      } else {
+        return {
+          authorized: false,
+          errorCode: "DEMO_INPUT_RESTRICTED",
+          messageKey: "errors.demoInputRestricted",
+        };
+      }
+    } else if (req.field.kind === "option") {
+      if (!req.field.label) {
+        return {
+          authorized: false,
+          errorCode: "DEMO_INPUT_RESTRICTED",
+          messageKey: "errors.demoInputRestricted",
+        };
+      }
+      const enOpt = fixture.en.options.find((o) => o.label === req.field.label);
+      const taOpt = fixture.ta.options.find((o) => o.label === req.field.label);
+      if (!enOpt || !taOpt) {
+        return {
+          authorized: false,
+          errorCode: "DEMO_INPUT_RESTRICTED",
+          messageKey: "errors.demoInputRestricted",
+        };
+      }
+
+      if (req.sourceLanguage === "en" && req.targetLanguage === "ta") {
+        expectedSource = enOpt.text;
+        expectedTarget = taOpt.text;
+      } else if (req.sourceLanguage === "ta" && req.targetLanguage === "en") {
+        expectedSource = taOpt.text;
+        expectedTarget = enOpt.text;
+      } else {
+        return {
+          authorized: false,
+          errorCode: "DEMO_INPUT_RESTRICTED",
+          messageKey: "errors.demoInputRestricted",
+        };
+      }
+    } else {
+      return {
+        authorized: false,
+        errorCode: "DEMO_INPUT_RESTRICTED",
+        messageKey: "errors.demoInputRestricted",
+      };
+    }
+
+    // Verify sourceText and currentText match server-owned sample content
+    if (
+      req.sourceText.trim() !== expectedSource.trim() ||
+      req.currentText.trim() !== expectedTarget.trim()
+    ) {
+      return {
+        authorized: false,
+        errorCode: "DEMO_INPUT_RESTRICTED",
+        messageKey: "errors.demoInputRestricted",
+      };
+    }
+  }
+
+  return { authorized: true };
+}

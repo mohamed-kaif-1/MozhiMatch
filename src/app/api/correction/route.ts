@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { CorrectionRequestSchema } from "../../../lib/contracts/correction";
 import { ErrorResponse } from "../../../lib/contracts/types";
 import { APP_LIMITS } from "../../../lib/contracts/config";
-import { validateOrigin, validateDemoCode } from "../../../lib/server/access";
+import {
+  validateOrigin,
+  validateDemoCode,
+  validateCorrectionAllowlist,
+} from "../../../lib/server/access";
+import { enforceRateLimit } from "../../../lib/server/ratelimit";
 import { generateCorrection } from "../../../lib/ai/correction";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +17,8 @@ function errorResponse(
   status: number,
   code: ErrorResponse["error"]["code"],
   messageKey: string,
-  requestId: string | null = null
+  requestId: string | null = null,
+  headers?: Record<string, string>
 ): NextResponse {
   const body: ErrorResponse = {
     error: {
@@ -21,7 +27,7 @@ function errorResponse(
       requestId,
     },
   };
-  return NextResponse.json(body, { status });
+  return NextResponse.json(body, { status, headers });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -31,7 +37,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(415, "UNSUPPORTED_MEDIA_TYPE", "errors.unsupportedMediaType");
   }
 
-  // 2. Read body text and check length bounds
+  // 2. Rate limiting enforcement
+  const rateLimitCheck = await enforceRateLimit(request, "correction");
+  if (!rateLimitCheck.allowed) {
+    return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", null, {
+      "Retry-After": String(rateLimitCheck.retryAfterSeconds ?? 60),
+      "X-RateLimit-Limit": String(rateLimitCheck.limit),
+      "X-RateLimit-Remaining": "0",
+      "X-RateLimit-Reset": String(rateLimitCheck.resetSeconds),
+    });
+  }
+
+  const rateLimitHeaders = {
+    "X-RateLimit-Limit": String(rateLimitCheck.limit),
+    "X-RateLimit-Remaining": String(rateLimitCheck.remaining),
+    "X-RateLimit-Reset": String(rateLimitCheck.resetSeconds),
+  };
+
+  // 3. Read body text and check length bounds
   let rawBody: string;
   try {
     rawBody = await request.text();
@@ -44,7 +67,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(413, "BODY_TOO_LARGE", "errors.bodyTooLarge");
   }
 
-  // 3. Parse JSON
+  // 4. Parse JSON
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(rawBody);
@@ -52,7 +75,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(400, "INVALID_REQUEST", "errors.invalidRequest");
   }
 
-  // 4. Validate schema
+  // 5. Validate schema
   const validation = CorrectionRequestSchema.safeParse(parsedJson);
   if (!validation.success) {
     const reqId =
@@ -65,13 +88,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const reqData = validation.data;
   const { requestId, consent } = reqData;
 
-  // 5. Origin check
+  // 6. Origin check
   const originCheck = validateOrigin(request.headers.get("origin"));
   if (!originCheck.authorized && originCheck.errorCode && originCheck.messageKey) {
     return errorResponse(403, originCheck.errorCode, originCheck.messageKey, requestId);
   }
 
-  // 6. Security authorization & consent gate
+  // 7. Security authorization & consent gate
   if (!consent) {
     return errorResponse(422, "CONSENT_REQUIRED", "errors.consentRequired", requestId);
   }
@@ -81,9 +104,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(401, demoCodeCheck.errorCode, demoCodeCheck.messageKey, requestId);
   }
 
-  // 7. Generate correction
+  // 8. Public demo sample allowlist verification (Server-owned content validation)
+  const allowlistCheck = validateCorrectionAllowlist(reqData);
+  if (!allowlistCheck.authorized && allowlistCheck.errorCode && allowlistCheck.messageKey) {
+    return errorResponse(403, allowlistCheck.errorCode, allowlistCheck.messageKey, requestId);
+  }
+
+  // 9. Generate correction
   const result = await generateCorrection(reqData);
 
-  return NextResponse.json(result, { status: 200 });
+  return NextResponse.json(result, {
+    status: 200,
+    headers: rateLimitHeaders,
+  });
 }
-

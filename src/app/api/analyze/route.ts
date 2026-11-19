@@ -18,13 +18,15 @@ import {
   validateDemoCode,
   validateDemoAllowlist,
 } from "../../../lib/server/access";
+import { enforceRateLimit } from "../../../lib/server/ratelimit";
 import { callGeminiSemanticReview } from "../../../lib/ai/gemini";
 
 function errorResponse(
   status: number,
   code: ErrorResponse["error"]["code"],
   messageKey: string,
-  requestId: string | null = null
+  requestId: string | null = null,
+  headers?: Record<string, string>
 ): NextResponse {
   const body: ErrorResponse = {
     error: {
@@ -33,7 +35,7 @@ function errorResponse(
       requestId,
     },
   };
-  return NextResponse.json(body, { status });
+  return NextResponse.json(body, { status, headers });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -43,7 +45,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(415, "UNSUPPORTED_MEDIA_TYPE", "errors.unsupportedMediaType");
   }
 
-  // 2. Read body text and check length bounds
+  // 2. Rate limiting enforcement
+  const rateLimitCheck = await enforceRateLimit(request, "analyze");
+  if (!rateLimitCheck.allowed) {
+    return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", null, {
+      "Retry-After": String(rateLimitCheck.retryAfterSeconds ?? 60),
+      "X-RateLimit-Limit": String(rateLimitCheck.limit),
+      "X-RateLimit-Remaining": "0",
+      "X-RateLimit-Reset": String(rateLimitCheck.resetSeconds),
+    });
+  }
+
+  const rateLimitHeaders = {
+    "X-RateLimit-Limit": String(rateLimitCheck.limit),
+    "X-RateLimit-Remaining": String(rateLimitCheck.remaining),
+    "X-RateLimit-Reset": String(rateLimitCheck.resetSeconds),
+  };
+
+  // 3. Read body text and check length bounds
   let rawBody: string;
   try {
     rawBody = await request.text();
@@ -135,7 +154,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       items: responseItems,
     };
 
-    return NextResponse.json(responseBody, { status: 200 });
+    return NextResponse.json(responseBody, { status: 200, headers: rateLimitHeaders });
   }
 
   // 9. AI mode execution
@@ -162,7 +181,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       items: responseItems,
     };
 
-    return NextResponse.json(responseBody, { status: 200 });
+    return NextResponse.json(responseBody, { status: 200, headers: rateLimitHeaders });
   }
 
   // Call Gemini provider
@@ -188,7 +207,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       items: responseItems,
     };
 
-    return NextResponse.json(responseBody, { status: 200 });
+    return NextResponse.json(responseBody, { status: 200, headers: rateLimitHeaders });
   }
 
   // Gemini returned results: validate each item and each comparison
@@ -260,6 +279,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(500, "INTERNAL_ERROR", "errors.internalError", requestId);
   }
 
-  return NextResponse.json(finalCheck.data, { status: 200 });
+  return NextResponse.json(finalCheck.data, { status: 200, headers: rateLimitHeaders });
 }
 
