@@ -39,7 +39,7 @@ export const PairEditor: React.FC<PairEditorProps> = ({
             <button
               type="button"
               onClick={onAddOption}
-              className="neobrutal-btn text-xs px-3 py-1.5 flex items-center gap-1.5"
+              className="neobrutal-btn text-xs px-3 py-2 flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               <Plus className="w-3.5 h-3.5" />
               {t("editor.addOption")}
@@ -90,14 +90,14 @@ export const PairEditor: React.FC<PairEditorProps> = ({
                   onChange={(e) => onUpdateOption("en", opt.label, e.target.value)}
                   placeholder={`Option ${opt.label} in English`}
                   maxLength={APP_LIMITS.MAX_OPTION_LENGTH}
-                  className="flex-1 p-2 text-sm border-2 border-black rounded-none bg-[#FFFDF5]"
+                  className="flex-1 p-2 text-sm border-2 border-black rounded-none bg-[#FFFDF5] min-h-[44px]"
                 />
                 {canRemoveOption && (
                   <button
                     type="button"
                     onClick={() => onRemoveOption(opt.label)}
                     title={t("editor.removeOption")}
-                    className="p-1.5 text-gray-500 hover:text-red-600 border border-transparent hover:border-black"
+                    className="p-2 text-gray-500 hover:text-red-600 border border-transparent hover:border-black min-h-[44px] min-w-[44px] flex items-center justify-center"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -148,14 +148,14 @@ export const PairEditor: React.FC<PairEditorProps> = ({
                   onChange={(e) => onUpdateOption("ta", opt.label, e.target.value)}
                   placeholder={`விடை ${opt.label} தமிழில்`}
                   maxLength={APP_LIMITS.MAX_OPTION_LENGTH}
-                  className="flex-1 p-2 text-sm border-2 border-black rounded-none font-tamil bg-[#FFFDF5]"
+                  className="flex-1 p-2 text-sm border-2 border-black rounded-none font-tamil bg-[#FFFDF5] min-h-[44px]"
                 />
                 {canRemoveOption && (
                   <button
                     type="button"
                     onClick={() => onRemoveOption(opt.label)}
                     title={t("editor.removeOption")}
-                    className="p-1.5 text-gray-500 hover:text-red-600 border border-transparent hover:border-black"
+                    className="p-2 text-gray-500 hover:text-red-600 border border-transparent hover:border-black min-h-[44px] min-w-[44px] flex items-center justify-center"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

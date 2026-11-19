@@ -174,7 +174,7 @@ export const Workbench: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowHelpModal(true)}
-            className="neobrutal-btn p-2 text-xs flex items-center gap-1.5"
+            className="neobrutal-btn px-3 py-2 text-xs flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px]"
             title={t("app.help")}
           >
             <Info className="w-4 h-4" />
@@ -195,7 +195,7 @@ export const Workbench: React.FC = () => {
             <select
               onChange={(e) => handleLoadExample(e.target.value)}
               defaultValue="DEV_NEGATION"
-              className="p-1.5 text-xs border-2 border-black font-semibold bg-[#FFFDF5]"
+              className="px-2.5 py-2 text-xs border-2 border-black font-semibold bg-[#FFFDF5] min-h-[44px] max-w-[200px] sm:max-w-xs"
             >
               <option value="DEV_NEGATION">DEV_NEGATION (Negation dropped in Tamil)</option>
               <option value="DEV_VERB">DEV_VERB (Verb direction mismatch)</option>
@@ -212,7 +212,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => dispatch({ type: "SET_MODE", payload: "rules" })}
-                className={`px-3 py-1 text-xs font-bold transition-all ${
+                className={`px-3 py-2 text-xs font-bold transition-all ${
                   state.mode === "rules"
                     ? "bg-[#FFE066] text-black font-extrabold"
                     : "bg-white text-gray-600 hover:bg-gray-100"
@@ -223,7 +223,7 @@ export const Workbench: React.FC = () => {
               <button
                 type="button"
                 onClick={() => dispatch({ type: "SET_MODE", payload: "ai" })}
-                className={`px-3 py-1 text-xs font-bold transition-all border-l-2 border-black ${
+                className={`px-3 py-2 text-xs font-bold transition-all border-l-2 border-black ${
                   state.mode === "ai"
                     ? "bg-[#2154F4] text-white font-extrabold"
                     : "bg-white text-gray-600 hover:bg-gray-100"
@@ -238,7 +238,7 @@ export const Workbench: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowCodeInput(!showCodeInput)}
-            className="text-xs text-gray-600 underline flex items-center gap-1 hover:text-black"
+            className="text-xs text-gray-600 underline flex items-center gap-1 hover:text-black min-h-[44px] py-2 px-1"
           >
             <KeyRound className="w-3.5 h-3.5" />
             {t("privacy.code")}
@@ -256,7 +256,7 @@ export const Workbench: React.FC = () => {
                 dispatch({ type: "SET_DEMO_CODE", payload: e.target.value })
               }
               placeholder="Enter private operator code..."
-              className="p-1.5 text-xs border-2 border-black font-mono w-64"
+              className="p-1.5 text-xs border-2 border-black font-mono w-full max-w-xs"
             />
             <span className="text-[11px] text-gray-500">{t("privacy.codeHelp")}</span>
           </div>
@@ -315,7 +315,7 @@ export const Workbench: React.FC = () => {
             <button
               type="button"
               onClick={handleCopySummary}
-              className="neobrutal-btn text-xs px-3.5 py-2 flex items-center gap-1.5"
+              className="neobrutal-btn text-xs px-3.5 py-2 flex items-center gap-1.5 min-h-[44px]"
             >
               {copied ? (
                 <>
@@ -333,7 +333,7 @@ export const Workbench: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowResetConfirm(true)}
-              className="neobrutal-btn text-xs px-3 py-2 flex items-center gap-1 text-gray-700 hover:text-black"
+              className="neobrutal-btn text-xs px-3 py-2 flex items-center justify-center gap-1 text-gray-700 hover:text-black min-h-[44px] min-w-[44px]"
               title={t("actions.reset")}
             >
               <RotateCcw className="w-3.5 h-3.5" />

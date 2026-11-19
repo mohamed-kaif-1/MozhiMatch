@@ -86,7 +86,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
           <button
             type="button"
             onClick={onAddItem}
-            className="neobrutal-btn text-xs px-2 py-1 flex items-center gap-1"
+            className="neobrutal-btn text-xs px-3 py-2 flex items-center justify-center gap-1 min-h-[44px]"
             title={t("editor.addItem")}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -130,7 +130,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({
                       e.stopPropagation();
                       onRemoveItem(item.id);
                     }}
-                    className="p-1 text-gray-400 hover:text-red-600"
+                    className="p-2 text-gray-400 hover:text-red-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
                     title={t("editor.removeItem")}
                   >
                     <Trash2 className="w-3.5 h-3.5" />

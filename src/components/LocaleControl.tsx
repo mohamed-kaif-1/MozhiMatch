@@ -17,7 +17,7 @@ export const LocaleControl: React.FC = () => {
         type="button"
         onClick={() => setLocale("en")}
         aria-pressed={locale === "en"}
-        className={`px-2.5 py-1 text-xs font-bold border-2 border-black transition-all ${
+        className={`px-3 py-2 text-xs font-bold border-2 border-black min-h-[44px] flex items-center justify-center transition-all ${
           locale === "en"
             ? "bg-[#2154F4] text-white shadow-[2px_2px_0_#000]"
             : "bg-white text-black hover:bg-gray-100"
@@ -29,7 +29,7 @@ export const LocaleControl: React.FC = () => {
         type="button"
         onClick={() => setLocale("ta")}
         aria-pressed={locale === "ta"}
-        className={`px-2.5 py-1 text-xs font-bold font-tamil border-2 border-black transition-all ${
+        className={`px-3 py-2 text-xs font-bold font-tamil border-2 border-black min-h-[44px] flex items-center justify-center transition-all ${
           locale === "ta"
             ? "bg-[#2154F4] text-white shadow-[2px_2px_0_#000]"
             : "bg-white text-black hover:bg-gray-100"

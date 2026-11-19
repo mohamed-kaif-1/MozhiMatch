@@ -196,7 +196,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
           {/* Stem row */}
           <div className="paper-panel p-4 space-y-3 border-l-4 border-l-black">
-            <div className="flex items-center justify-between border-b pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
               <span className="font-bold text-sm bg-black text-white px-2 py-0.5">
                 Stem (Question)
               </span>
@@ -204,7 +204,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => onSetDecision("stem", "keep")}
-                  className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                  className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
                     decisions["stem"] === "keep"
                       ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
                       : "bg-white hover:bg-gray-50"
@@ -215,7 +215,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => onSetDecision("stem", "fix")}
-                  className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                  className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
                     decisions["stem"] === "fix"
                       ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
                       : "bg-white hover:bg-gray-50"
@@ -226,7 +226,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => onSetDecision("stem", "escalate")}
-                  className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                  className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
                     decisions["stem"] === "escalate"
                       ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
                       : "bg-white hover:bg-gray-50"
@@ -254,7 +254,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             const taOpt = item.ta.options.find((o) => o.label === opt.label);
             return (
               <div key={opt.label} className="paper-panel p-4 space-y-3 border-l-4 border-l-black">
-                <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
                   <span className="font-bold text-sm bg-black text-white px-2 py-0.5">
                     Option {opt.label}
                   </span>
@@ -262,7 +262,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "keep")}
-                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
                         decisions[fieldKey] === "keep"
                           ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
                           : "bg-white hover:bg-gray-50"
@@ -273,7 +273,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "fix")}
-                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
                         decisions[fieldKey] === "fix"
                           ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
                           : "bg-white hover:bg-gray-50"
@@ -284,7 +284,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "escalate")}
-                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] ${
                         decisions[fieldKey] === "escalate"
                           ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
                           : "bg-white hover:bg-gray-50"
@@ -353,7 +353,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "keep")}
-                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold transition-all ${
+                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] transition-all ${
                         currentDecision === "keep"
                           ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
                           : "bg-white hover:bg-gray-50"
@@ -364,7 +364,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "fix")}
-                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold transition-all ${
+                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] transition-all ${
                         currentDecision === "fix"
                           ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
                           : "bg-white hover:bg-gray-50"
@@ -375,7 +375,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetDecision(fieldKey, "escalate")}
-                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold transition-all ${
+                      className={`text-xs px-2.5 py-2 border-2 border-black font-semibold min-h-[44px] transition-all ${
                         currentDecision === "escalate"
                           ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
                           : "bg-white hover:bg-gray-50"
@@ -424,4 +424,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     </div>
   );
 };
+
+
 

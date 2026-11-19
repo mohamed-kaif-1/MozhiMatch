@@ -78,7 +78,25 @@ Next is PROMPT_00 for inspection, followed by PROMPT_01 for environment and PROM
 - **Clean Control Question:** Verified "இவற்றில் பழம் அல்லாதது எது?" under live AI correctly returned `no_issue_found` with stem and options A–D confirmed `equivalent`.
 - **Structural & Rules Verification:** Verified DEV_STRUCTURE option count mismatch, numeric token differences (2020 vs 2025-இல்), and confirmed DEV_CLEAN under rules-only mode strictly returns `needs_review`.
 - **Reviewer Workflow & Localization:** Verified Keep/Fix/Escalate button styling, report export to clipboard, help modal, private operator code toggle, reset confirmation, and dynamic bidirectional Tamil/English UI localization.
-- **Final Result:** 11/11 browser test suites passed, 0 runtime errors, ready for public deployment.
+
+### Milestone 11: Mobile Viewport QA Contradiction Resolution & Touch Target Hardening
+- **Contradiction Resolution:** Resolved previous report discrepancy (clientWidth 375 vs 485px). On Windows desktop Chrome, native window resizing without mobile device emulation is constrained by the OS minimum window width (~500px), which clamped `document.documentElement.clientWidth` to `485px`.
+- **Real Mobile Emulation Measurements (`Emulation.setDeviceMetricsOverride`):**
+  - **375px (iPhone SE):** `innerWidth: 375`, `innerHeight: 667`, `clientWidth: 375`, `scrollWidth: 375`, `hasHorizontalScroll: false`, `overflowDiff: 0`. Overflow elements: `0`.
+  - **390px (iPhone Pro):** `innerWidth: 390`, `innerHeight: 844`, `clientWidth: 390`, `scrollWidth: 390`, `hasHorizontalScroll: false`, `overflowDiff: 0`. Overflow elements: `0`.
+  - Verified screenshots captured: `evaluation/mobile-375-verified.png` and `evaluation/mobile-390-verified.png`.
+- **Touch Target Hardening:** All interactive controls updated to satisfy the blueprint's `--layout-touchTarget: 44px` requirement:
+  - English & Tamil locale toggle buttons: `min-h-[44px]` (68x44 & 66x44px).
+  - Help button ("How this works"): `44x44px`.
+  - Example selector dropdown: `200x44px`.
+  - Private operator code toggle: `140x44px`.
+  - "Copy issue list" & "Reset" buttons: `min-h-[44px]` (131x44 & 75x44px).
+  - Queue "Add" & editor "Add option" buttons: `min-h-[44px]` (69x44 & 110x44px).
+  - Option text inputs: `211x44px`.
+  - Option remove buttons: `44x44px`.
+  - Decision buttons (Keep, Fix, Escalate): `min-h-[44px]` across all 9 instances.
+  - Automated CDP scan verified **0 / 28** controls below 44px (`belowMinH: false`, `belowMinW: false`).
+- **Safety Styling:** Added `overflow-x: hidden` to root `body` in `globals.css` and `flex-wrap` with responsive sizing on toolbar/evidence headers.
 
 ---
 
@@ -88,6 +106,7 @@ Next is PROMPT_00 for inspection, followed by PROMPT_01 for environment and PROM
 - `npm run lint` -> Passed with 0 errors (Exit code: 0)
 - `npm run build` -> Optimized production build generated (Exit code: 0)
 - `npm run eval:development` -> 5 development items evaluated and saved (Exit code: 0)
-- Browser QA Suite -> 11/11 tests PASSED with live Gemini AI verification and session recording
+- Real Browser Mobile Suite -> 375px & 390px verified via CDP (0 overflow, all 28 touch targets >= 44px)
+- Public Deployment Status -> **NOT DEPLOYED** (Local build verified; public hosting and remote URL verification pending deployment step)
 
 All code pushed to GitHub: `https://github.com/mohamed-kaif-1/MozhiMatch.git` (branch: `main`).
