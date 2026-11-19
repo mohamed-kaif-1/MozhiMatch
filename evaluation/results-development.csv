@@ -1,0 +1,6 @@
+fixture_id,condition,status,structural_issues,notes
+"DEV_NEGATION","rules","meaning_changed","none","Negative dropped in Tamil (அல்லாத omitted)"
+"DEV_VERB","rules","meaning_changed","none","Verb direction mismatch (received vs awarded/gave)"
+"DEV_CLEAN","rules","no_issue_found","none","Clean parallel question"
+"DEV_UNCERTAIN","rules","needs_review","none","Transliterated name initial K. / க."
+"DEV_STRUCTURE","rules","needs_review","OPTION_COUNT_MISMATCH(4 vs 3)","Option count mismatch: 4 EN vs 3 TA"
