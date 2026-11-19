@@ -152,6 +152,14 @@ export const AnalyzeResponseItemSchema = z.object({
   comparisons: z.array(ValidatedComparisonSchema).max(6),
 }).strict();
 
+export const WarningCodeSchema = z.enum([
+  "AI_DISABLED",
+  "AI_UNAVAILABLE",
+  "AI_TIMEOUT",
+  "AI_INVALID_RESPONSE",
+  "UNSUPPORTED_CONTENT",
+]);
+
 export const AnalyzeResponseSchema = z.object({
   requestId: z.string().uuid(),
   revision: z.number().int().min(0),
@@ -164,15 +172,7 @@ export const AnalyzeResponseSchema = z.object({
     "timeout",
     "invalid_response",
   ]),
-  warnings: z.array(
-    z.enum([
-      "AI_DISABLED",
-      "AI_UNAVAILABLE",
-      "AI_TIMEOUT",
-      "AI_INVALID_RESPONSE",
-      "UNSUPPORTED_CONTENT",
-    ])
-  ),
+  warnings: z.array(WarningCodeSchema),
   items: z.array(AnalyzeResponseItemSchema).min(1).max(10),
 }).strict();
 

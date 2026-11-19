@@ -17,6 +17,7 @@ import {
   ValidatedComparisonSchema,
   ItemReviewStatusSchema,
   AnalyzeResponseItemSchema,
+  WarningCodeSchema,
   AnalyzeResponseSchema,
   ErrorCodeSchema,
   ErrorResponseSchema,
@@ -38,6 +39,7 @@ export type StructuralFinding = z.infer<typeof StructuralFindingSchema>;
 export type EvidenceSpan = z.infer<typeof EvidenceSpanSchema>;
 export type ValidatedComparison = z.infer<typeof ValidatedComparisonSchema>;
 export type ItemReviewStatus = z.infer<typeof ItemReviewStatusSchema>;
+export type WarningCode = z.infer<typeof WarningCodeSchema>;
 export type AnalyzeResponseItem = z.infer<typeof AnalyzeResponseItemSchema>;
 export type AnalyzeResponse = z.infer<typeof AnalyzeResponseSchema>;
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
