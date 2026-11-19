@@ -118,4 +118,32 @@ Q2,,வெற்று தாள்,A,A,B,B,C,C,D,D,,`; // Empty EN stem on Q2
     expect(result.rowPreviews[0].errors).toHaveLength(0);
     expect(result.rowPreviews[1].errors.some((e) => e.includes("English question text"))).toBe(true);
   });
+
+  it("handles PapaParse errors and rejects malformed quoting and inconsistent field counts with useful row errors", () => {
+    // Malformed quotes
+    const malformedCsv = `id,en_stem,ta_stem,en_A,ta_A,en_B,ta_B,en_C,ta_C,en_D,ta_D,en_E,ta_E
+Q1,"Malformed quote stem without closing quote,தாள்,A,A,B,B,C,C,D,D,,`;
+
+    const result = parseAndValidateCsv(malformedCsv);
+    expect(result.success).toBe(false);
+    expect(result.validItems).toHaveLength(0);
+    // Must report quote or parsing error on the row or file
+    const hasParseError =
+      result.fileErrors.some((e) => /quote|parse|field/i.test(e)) ||
+      result.rowPreviews.some((r) => r.errors.some((e) => /quote|parse|field/i.test(e)));
+    expect(hasParseError).toBe(true);
+  });
+
+  it("preserves original source wording without silently trimming question or option content", () => {
+    const csv = `id,en_stem,ta_stem,en_A,ta_A,en_B,ta_B,en_C,ta_C,en_D,ta_D,en_E,ta_E
+Q1,"  Untrimmed stem with spaces  ","  தமிழ்த்தாள் இடைவெளி  ","  Opt A with spaces  ","  தேர்வு A  ","Opt B","தேர்வு B","Opt C","தேர்வு C","Opt D","தேர்வு D","",""`;
+
+    const result = parseAndValidateCsv(csv);
+    expect(result.success).toBe(true);
+    expect(result.validItems).toHaveLength(1);
+    const item = result.validItems[0];
+    expect(item.en.stem).toBe("  Untrimmed stem with spaces  ");
+    expect(item.ta.stem).toBe("  தமிழ்த்தாள் இடைவெளி  ");
+    expect(item.en.options[0].text).toBe("  Opt A with spaces  ");
+  });
 });

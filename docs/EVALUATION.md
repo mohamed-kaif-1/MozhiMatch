@@ -31,29 +31,33 @@ npm run eval:development
 npm run eval:holdout
 
 # 2. Opt-in Live AI Semantic Evaluation (requires GEMINI_API_KEY)
-node --experimental-strip-types scripts/evaluate.ts --split development --mode live_ai
-node --experimental-strip-types scripts/evaluate.ts --split holdout --mode live_ai
+npx tsx scripts/evaluate.ts --split development --mode live_ai
+npx tsx scripts/evaluate.ts --split holdout --mode live_ai
 ```
 
 ### Evaluation Mode Contracts
 
 1. **Rules Mode (`--mode rules`)**:
-   - Executes the production structural rules engine (`checkStructuralRules()`).
+   - Executes the shared production structural rules engine (`checkStructuralRules()`).
    - Identifies option count mismatches, duplicate labels, label set parity, Tamil numerals (`௦–௯`), numeric tokens, and unit differences.
    - Per the production safety contract, rules-only items are assigned status `needs_review` because deterministic checks cannot certify semantic equivalence.
 2. **Live AI Mode (`--mode live_ai`)**:
    - Opt-in only. Requires `GEMINI_API_KEY` and `AI_MODE !== "off"`.
-   - If credentials are not present, the runner explicitly marks results `not_run` and exits safely without faking predictions or assigning `live_ai` labels.
-   - When executed, sends bounded requests to the Google Generative Language API (`gemini-2.5-flash`), enforces the JSON response schema, and verifies exact verbatim substring quotes in both English and Tamil text.
-   - Any grounding failure or timeout safely falls back to `needs_review`.
+   - If credentials are not present, the runner explicitly marks results `not_run` and exits safely without faking predictions or assigning synthetic outcomes.
+   - Uses shared production modules directly (`checkStructuralRules`, `isStructurallyBlocked`, `validateItemComparisons`, and production prompts from `src/lib/`).
+   - Structurally blocked items are detected and excluded upfront before any provider call.
+   - Enforces the production timeout (`APP_LIMITS.PROVIDER_TIMEOUT_MS`).
+   - Validates complete stem-and-option coverage using the shared production evidence engine: empty or partial comparisons are rejected and never produce `no_issue_found`.
+   - Explicitly distinguishes successful material detections (`meaning_changed`) from model abstentions / ambiguities (`needs_review` due to `uncertain`), structural blocks (`rules_blocked`), clean passes (`no_issue_found`), and unrun executions (`not_run`).
 
 ### Metrics & CSV Artifacts
 
 The runner scores predictions against expected ground-truth labels and outputs:
 - **Exact Match Ratio**: Predictions matching expected status.
-- **Material Hits**: Discrepancies correctly identified as `meaning_changed`.
-- **Critical Misses**: Material changes falsely marked as `no_issue_found` (0 allowed).
-- **False Alarms**: Clean controls falsely flagged as `meaning_changed`.
+- **Material Meaning Change Detections**: Material discrepancies correctly identified as `meaning_changed`.
+- **Ambiguities / Model Abstentions**: Items where the model abstained or flagged uncertainty (`needs_review`).
+- **Clean Passes**: Clean controls verified equivalent (`no_issue_found`).
+- **Structurally Blocked**: Items excluded from provider calls due to structural incompatibilities.
 - **Grounded Evidence Ratio**: Percentage of items with verbatim source quotations.
 
 Results are written to `evaluation/results-development.csv` and `evaluation/results-holdout.csv` with columns:

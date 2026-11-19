@@ -15,8 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "eval:development": "node --experimental-strip-types scripts/evaluate.ts --split development",
-    "eval:holdout": "node --experimental-strip-types scripts/evaluate.ts --split holdout"
+    "eval:development": "tsx scripts/evaluate.ts --split development",
+    "eval:holdout": "tsx scripts/evaluate.ts --split holdout"
   },
   "dependencies": {
     "@fontsource/geist": "5.3.0",
@@ -41,6 +41,7 @@
     "eslint-config-next": "16.4.6",
     "postcss": "^8.5.0",
     "tailwindcss": "4.3.5",
+    "tsx": "^4.23.15",
     "typescript": "5.9.3",
     "vite": "^8.0.0",
     "vitest": "5.1.1"

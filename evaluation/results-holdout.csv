@@ -6,6 +6,6 @@ fixture_id,condition,status,expected_status,structural_issues,evidence_grounded,
 "H05","rules","needs_review","no_issue_found","none","false","Structure clean; semantic review strictly required (rules never claim equivalence)"
 "H06","rules","needs_review","no_issue_found","UNIT_TOKEN_DIFFERENCE(stem)","false","Structural issues flagged: UNIT_TOKEN_DIFFERENCE"
 "H07","rules","needs_review","no_issue_found","none","false","Structure clean; semantic review strictly required (rules never claim equivalence)"
-"H08","rules","needs_review","needs_review","none","false","Structure clean; semantic review strictly required (rules never claim equivalence)"
+"H08","rules","needs_review","needs_review","UNIT_TOKEN_DIFFERENCE(option:A); UNIT_TOKEN_DIFFERENCE(option:B)","false","Structural issues flagged: UNIT_TOKEN_DIFFERENCE, UNIT_TOKEN_DIFFERENCE"
 "H09","rules","needs_review","needs_review","none","false","Structure clean; semantic review strictly required (rules never claim equivalence)"
 "H10","rules","needs_review","needs_review","OPTION_COUNT_MISMATCH(stem); OPTION_LABEL_MISMATCH(stem)","false","Structural issues flagged: OPTION_COUNT_MISMATCH, OPTION_LABEL_MISMATCH"

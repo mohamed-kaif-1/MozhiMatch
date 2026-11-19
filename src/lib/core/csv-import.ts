@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import { QuestionItem } from "../contracts/types";
+import { QuestionItemSchema } from "../contracts/schemas";
 import { APP_LIMITS } from "../contracts/config";
 
 export const MAX_CSV_FILE_BYTES = 512 * 1024; // 512 KB limit
@@ -132,11 +133,27 @@ export function parseAndValidateCsv(csvText: string): CsvParseResult {
     transformHeader: (header) => header.trim(),
   });
 
+  // Collect PapaParse parse-level errors (malformed quoting, inconsistent field counts, etc.)
+  const papaRowErrors = new Map<number, string[]>();
+  if (parsed.errors && parsed.errors.length > 0) {
+    for (const err of parsed.errors) {
+      const msg = `CSV parse error on line ${err.row !== undefined ? err.row + 2 : "unknown"}: ${err.message} (${err.code || err.type}).`;
+      if (err.row !== undefined) {
+        if (!papaRowErrors.has(err.row)) {
+          papaRowErrors.set(err.row, []);
+        }
+        papaRowErrors.get(err.row)!.push(msg);
+      } else {
+        fileErrors.push(msg);
+      }
+    }
+  }
+
   const rawRows = parsed.data;
   if (!rawRows || rawRows.length === 0) {
     return {
       success: false,
-      fileErrors: ["CSV file contains no question data rows."],
+      fileErrors: fileErrors.length > 0 ? fileErrors : ["CSV file contains no question data rows."],
       rowPreviews: [],
       validItems: [],
     };
@@ -158,9 +175,15 @@ export function parseAndValidateCsv(csvText: string): CsvParseResult {
     const rowNum = idx + 2; // Line 1 is header, Line 2 is first data row
     const rowErrors: string[] = [];
 
-    const rawId = (row["id"] || "").trim();
-    const enStem = (row["en_stem"] || "").trim();
-    const taStem = (row["ta_stem"] || "").trim();
+    // Attach any PapaParse parse-level error recorded for this row
+    if (papaRowErrors.has(idx)) {
+      rowErrors.push(...papaRowErrors.get(idx)!);
+    }
+
+    const rawId = (row["id"] ?? "").trim();
+    // Preserve original source wording without silent trimming
+    const rawEnStem = row["en_stem"] ?? "";
+    const rawTaStem = row["ta_stem"] ?? "";
 
     // Validate ID
     if (!rawId) {
@@ -173,48 +196,48 @@ export function parseAndValidateCsv(csvText: string): CsvParseResult {
       seenIds.add(rawId);
     }
 
-    // Validate Stems
-    if (!enStem) {
+    // Validate Stems (check trimmed length for emptiness, but preserve original text)
+    if (rawEnStem.trim().length === 0) {
       rowErrors.push("English question text (en_stem) cannot be empty.");
-    } else if (enStem.length > APP_LIMITS.MAX_STEM_LENGTH) {
+    } else if (rawEnStem.length > APP_LIMITS.MAX_STEM_LENGTH) {
       rowErrors.push(
-        `English question text exceeds maximum ${APP_LIMITS.MAX_STEM_LENGTH} characters (${enStem.length}).`
+        `English question text exceeds maximum ${APP_LIMITS.MAX_STEM_LENGTH} characters (${rawEnStem.length}).`
       );
     }
 
-    if (!taStem) {
+    if (rawTaStem.trim().length === 0) {
       rowErrors.push("Tamil question text (ta_stem) cannot be empty.");
-    } else if (taStem.length > APP_LIMITS.MAX_STEM_LENGTH) {
+    } else if (rawTaStem.length > APP_LIMITS.MAX_STEM_LENGTH) {
       rowErrors.push(
-        `Tamil question text exceeds maximum ${APP_LIMITS.MAX_STEM_LENGTH} characters (${taStem.length}).`
+        `Tamil question text exceeds maximum ${APP_LIMITS.MAX_STEM_LENGTH} characters (${rawTaStem.length}).`
       );
     }
 
-    // Validate Options
+    // Validate Options (preserving original source wording)
     const enOptions: { label: "A" | "B" | "C" | "D" | "E"; text: string }[] = [];
     const taOptions: { label: "A" | "B" | "C" | "D" | "E"; text: string }[] = [];
 
     for (const label of optionLabels) {
-      const enVal = (row[`en_${label}`] || "").trim();
-      const taVal = (row[`ta_${label}`] || "").trim();
+      const rawEnVal = row[`en_${label}`] ?? "";
+      const rawTaVal = row[`ta_${label}`] ?? "";
 
-      if (enVal.length > APP_LIMITS.MAX_OPTION_LENGTH) {
+      if (rawEnVal.length > APP_LIMITS.MAX_OPTION_LENGTH) {
         rowErrors.push(
-          `English option ${label} exceeds maximum ${APP_LIMITS.MAX_OPTION_LENGTH} characters (${enVal.length}).`
+          `English option ${label} exceeds maximum ${APP_LIMITS.MAX_OPTION_LENGTH} characters (${rawEnVal.length}).`
         );
       }
-      if (taVal.length > APP_LIMITS.MAX_OPTION_LENGTH) {
+      if (rawTaVal.length > APP_LIMITS.MAX_OPTION_LENGTH) {
         rowErrors.push(
-          `Tamil option ${label} exceeds maximum ${APP_LIMITS.MAX_OPTION_LENGTH} characters (${taVal.length}).`
+          `Tamil option ${label} exceeds maximum ${APP_LIMITS.MAX_OPTION_LENGTH} characters (${rawTaVal.length}).`
         );
       }
 
-      // If text exists, add to respective side (preserving structural discrepancies)
-      if (enVal.length > 0) {
-        enOptions.push({ label, text: enVal });
+      // If text exists, preserve original wording
+      if (rawEnVal.trim().length > 0) {
+        enOptions.push({ label, text: rawEnVal });
       }
-      if (taVal.length > 0) {
-        taOptions.push({ label, text: taVal });
+      if (rawTaVal.trim().length > 0) {
+        taOptions.push({ label, text: rawTaVal });
       }
     }
 
@@ -229,9 +252,24 @@ export function parseAndValidateCsv(csvText: string): CsvParseResult {
       );
     }
 
+    // Candidate item for schema validation
+    const candidateItem: QuestionItem = {
+      id: rawId,
+      en: { stem: rawEnStem, options: enOptions },
+      ta: { stem: rawTaStem, options: taOptions },
+    };
+
+    // Validate candidate item against shared production schema
+    const schemaValidation = QuestionItemSchema.safeParse(candidateItem);
+    if (!schemaValidation.success) {
+      for (const issue of schemaValidation.error.issues) {
+        rowErrors.push(`Schema validation: ${issue.path.join(".")}: ${issue.message}`);
+      }
+    }
+
     // Preview snippet truncation (first 60 characters)
-    const enSnippet = enStem.length > 60 ? enStem.slice(0, 57) + "..." : enStem;
-    const taSnippet = taStem.length > 60 ? taStem.slice(0, 57) + "..." : taStem;
+    const enSnippet = rawEnStem.length > 60 ? rawEnStem.slice(0, 57) + "..." : rawEnStem;
+    const taSnippet = rawTaStem.length > 60 ? rawTaStem.slice(0, 57) + "..." : rawTaStem;
 
     rowPreviews.push({
       rowNumber: rowNum,
@@ -243,24 +281,31 @@ export function parseAndValidateCsv(csvText: string): CsvParseResult {
       errors: rowErrors,
     });
 
-    if (rowErrors.length === 0) {
-      validItems.push({
-        id: rawId,
-        en: { stem: enStem, options: enOptions },
-        ta: { stem: taStem, options: taOptions },
-      });
+    if (rowErrors.length === 0 && schemaValidation.success) {
+      validItems.push(candidateItem);
     }
   });
 
   // Check if any row has errors
   const hasRowErrors = rowPreviews.some((r) => r.errors.length > 0);
 
-  // 5. Total payload size check if valid items exist
+  // 5. Total payload size check (including full serialized request envelope) using TextEncoder
   if (!hasRowErrors && fileErrors.length === 0 && validItems.length > 0) {
-    const payloadBytes = Buffer.byteLength(JSON.stringify(validItems), "utf8");
+    const sampleEnvelope = {
+      requestId: "00000000-0000-0000-0000-000000000000",
+      revision: 0,
+      locale: "en",
+      mode: "ai",
+      sourceKind: "synthetic",
+      consent: true,
+      items: validItems,
+    };
+    const serializedRequest = JSON.stringify(sampleEnvelope);
+    const payloadBytes = new TextEncoder().encode(serializedRequest).length;
+
     if (payloadBytes > APP_LIMITS.MAX_REQUEST_BYTES) {
       fileErrors.push(
-        `Total batch data size (${payloadBytes} bytes) exceeds the ${APP_LIMITS.MAX_REQUEST_BYTES}-byte analysis limit. Reduce text length or number of items.`
+        `Total batch request size (${payloadBytes} bytes with envelope) exceeds the ${APP_LIMITS.MAX_REQUEST_BYTES}-byte analysis limit. Reduce text length or number of items.`
       );
     }
   }

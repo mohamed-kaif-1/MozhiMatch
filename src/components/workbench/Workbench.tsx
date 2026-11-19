@@ -12,6 +12,7 @@ import { formatReviewSummary } from "../../lib/core/export";
 import { generateReviewCsv } from "../../lib/core/csv-export";
 import devFixtures from "../../fixtures/development.json";
 import { QuestionItem, AnalyzeRequest } from "../../lib/contracts/types";
+import { APP_LIMITS } from "../../lib/contracts/config";
 import {
   Play,
   RotateCcw,
@@ -89,6 +90,19 @@ export const Workbench: React.FC = () => {
       consent: state.consent,
       items: state.items,
     };
+
+    const serializedPayload = JSON.stringify(requestPayload);
+    const byteLength = new TextEncoder().encode(serializedPayload).length;
+    if (byteLength > APP_LIMITS.MAX_REQUEST_BYTES) {
+      dispatch({
+        type: "ANALYSIS_ERROR",
+        payload: {
+          messageKey: "errors.bodyTooLarge",
+          code: "BODY_TOO_LARGE",
+        },
+      });
+      return;
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
