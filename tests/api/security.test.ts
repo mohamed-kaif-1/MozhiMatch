@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { POST as analyzePOST } from "../../src/app/api/analyze/route";
 import { POST as correctionPOST } from "../../src/app/api/correction/route";
 import { NextRequest } from "next/server";
@@ -150,10 +150,19 @@ describe("Security Integration & Gate Enforcement", () => {
   });
 
   describe("Public Judge Demo (Password-Free AI) & Private Operator Mode", () => {
-    it("allows anonymous judges to run AI on approved sample questions without a password", async () => {
+    it("allows anonymous judges to run AI on approved sample questions without a password when shared quota is configured", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
       process.env.AI_MODE = "mock";
       process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
+      process.env.UPSTASH_REDIS_REST_URL = "https://mock-redis.upstash.io";
+      process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
+
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(JSON.stringify({ result: [1, 86400] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
 
       const payload = {
         requestId: "123e4567-e89b-42d3-a456-426614174002",
@@ -174,10 +183,19 @@ describe("Security Integration & Gate Enforcement", () => {
       expect(json.mode).toBeDefined();
     });
 
-    it("allows anonymous judges to request AI corrections on approved sample questions without a password", async () => {
+    it("allows anonymous judges to request AI corrections on approved sample questions without a password when shared quota is configured", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
       process.env.AI_MODE = "mock";
       process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
+      process.env.UPSTASH_REDIS_REST_URL = "https://mock-redis.upstash.io";
+      process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
+
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        return new Response(JSON.stringify({ result: [1, 86400] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
 
       const fixture = devFixtures[0];
       const payload = {
@@ -201,10 +219,78 @@ describe("Security Integration & Gate Enforcement", () => {
       expect(json.status).toBeDefined();
     });
 
-    it("rejects unauthorized custom/tampered questions for anonymous users with 403 DEMO_INPUT_RESTRICTED", async () => {
+    it("fails closed with 429 when shared quota credentials are missing for anonymous public Gemini inference", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
       process.env.AI_MODE = "mock";
       process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
+      delete process.env.UPSTASH_REDIS_REST_URL;
+      delete process.env.UPSTASH_REDIS_REST_TOKEN;
+      delete process.env.KV_REST_API_URL;
+      delete process.env.KV_REST_API_TOKEN;
+
+      const payload = {
+        requestId: "123e4567-e89b-42d3-a456-426614174002",
+        revision: 0,
+        locale: "en",
+        mode: "ai",
+        sourceKind: "synthetic",
+        consent: true,
+        items: [devFixtures[0]],
+      };
+
+      const res = await analyzePOST(
+        makeRequest("http://localhost:3000/api/analyze", payload)
+      );
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.error.code).toBe("RATE_LIMITED");
+    });
+
+    it("fails closed with 429 when shared quota Redis call fails or times out for anonymous public Gemini inference", async () => {
+      process.env.DEPLOYMENT_MODE = "public_demo";
+      process.env.AI_MODE = "mock";
+      process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
+      process.env.UPSTASH_REDIS_REST_URL = "https://mock-redis.upstash.io";
+      process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
+
+      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Redis connection refused"));
+
+      const payload = {
+        requestId: "123e4567-e89b-42d3-a456-426614174002",
+        revision: 0,
+        locale: "en",
+        mode: "ai",
+        sourceKind: "synthetic",
+        consent: true,
+        items: [devFixtures[0]],
+      };
+
+      const res = await analyzePOST(
+        makeRequest("http://localhost:3000/api/analyze", payload)
+      );
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.error.code).toBe("RATE_LIMITED");
+    });
+
+    it("rejects unauthorized custom questions with 403 before consuming daily AI budget", async () => {
+      process.env.DEPLOYMENT_MODE = "public_demo";
+      process.env.AI_MODE = "mock";
+      process.env.DEMO_ACCESS_CODE = "secret-operator-pass";
+      process.env.UPSTASH_REDIS_REST_URL = "https://mock-redis.upstash.io";
+      process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
+
+      let budgetRedisCalled = false;
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+        const bodyStr = String(init?.body || "");
+        if (bodyStr.includes("mm_global_ai_budget")) {
+          budgetRedisCalled = true;
+        }
+        return new Response(JSON.stringify({ result: [1, 86400] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
 
       const customPayload = {
         requestId: "123e4567-e89b-42d3-a456-426614174004",
@@ -240,12 +326,29 @@ describe("Security Integration & Gate Enforcement", () => {
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.error.code).toBe("DEMO_INPUT_RESTRICTED");
+
+      // Verify that daily global AI budget was NOT consumed
+      expect(budgetRedisCalled).toBe(false);
     });
 
-    it("rejects invalid operator code with 401 UNAUTHORIZED_DEMO", async () => {
+    it("rejects invalid operator code with 401 before consuming daily AI budget", async () => {
       process.env.DEPLOYMENT_MODE = "public_demo";
       process.env.AI_MODE = "mock";
       process.env.DEMO_ACCESS_CODE = "correct-operator-pass";
+      process.env.UPSTASH_REDIS_REST_URL = "https://mock-redis.upstash.io";
+      process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
+
+      let budgetRedisCalled = false;
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+        const bodyStr = String(init?.body || "");
+        if (bodyStr.includes("mm_global_ai_budget")) {
+          budgetRedisCalled = true;
+        }
+        return new Response(JSON.stringify({ result: [1, 86400] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
 
       const payload = {
         requestId: "123e4567-e89b-42d3-a456-426614174005",
@@ -265,6 +368,9 @@ describe("Security Integration & Gate Enforcement", () => {
       expect(res.status).toBe(401);
       const json = await res.json();
       expect(json.error.code).toBe("UNAUTHORIZED_DEMO");
+
+      // Verify that daily global AI budget was NOT consumed
+      expect(budgetRedisCalled).toBe(false);
     });
   });
 });

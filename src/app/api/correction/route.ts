@@ -98,20 +98,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(422, "CONSENT_REQUIRED", "errors.consentRequired", requestId);
   }
 
-  // Global AI Request Budget check
-  const budgetCheck = await enforceGlobalAIBudget("correction");
+  // Step 7a: AI access authorization check BEFORE budget consumption
+  // Unauthorized requests must never exhaust the judge demo allowance.
+  const aiAccessCheck = validateCorrectionAIAccess(reqData, request.headers.get("x-demo-code"));
+  if (!aiAccessCheck.authorized && aiAccessCheck.errorCode && aiAccessCheck.messageKey) {
+    const status = aiAccessCheck.errorCode === "UNAUTHORIZED_DEMO" ? 401 : 403;
+    return errorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
+  }
+
+  // Step 7b: Shared quota requirement for anonymous public Gemini inference
+  const isAnonymousPublic =
+    process.env.DEPLOYMENT_MODE === "public_demo" && !aiAccessCheck.isOperator;
+
+  // Step 7c: Global AI Request Budget check
+  const budgetCheck = await enforceGlobalAIBudget("correction", {
+    requireSharedQuota: isAnonymousPublic,
+  });
   if (!budgetCheck.allowed) {
     return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", requestId, {
       "Retry-After": String(budgetCheck.retryAfterSeconds ?? 3600),
       "X-RateLimit-Limit": String(budgetCheck.limit),
       "X-RateLimit-Remaining": "0",
     });
-  }
-
-  const aiAccessCheck = validateCorrectionAIAccess(reqData, request.headers.get("x-demo-code"));
-  if (!aiAccessCheck.authorized && aiAccessCheck.errorCode && aiAccessCheck.messageKey) {
-    const status = aiAccessCheck.errorCode === "UNAUTHORIZED_DEMO" ? 401 : 403;
-    return errorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
   }
 
   // 9. Generate correction

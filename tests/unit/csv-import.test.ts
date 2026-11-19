@@ -3,6 +3,8 @@ import {
   parseAndValidateCsv,
   generateCsvTemplate,
   generateSampleCsv,
+  validateCsvFileMeta,
+  MAX_CSV_FILE_BYTES,
 } from "../../src/lib/core/csv-import";
 
 describe("CSV Import Module", () => {
@@ -145,5 +147,74 @@ Q1,"  Untrimmed stem with spaces  ","  தமிழ்த்தாள் இட�
     expect(item.en.stem).toBe("  Untrimmed stem with spaces  ");
     expect(item.ta.stem).toBe("  தமிழ்த்தாள் இடைவெளி  ");
     expect(item.en.options[0].text).toBe("  Opt A with spaces  ");
+  });
+
+  describe("CSV File Metadata & Upload Limits Validation", () => {
+    it("accepts valid CSV files by extension (.csv)", () => {
+      const validMeta = validateCsvFileMeta({
+        name: "questions_batch.csv",
+        size: 1024,
+      });
+      expect(validMeta.valid).toBe(true);
+      expect(validMeta.error).toBeUndefined();
+    });
+
+    it("accepts valid CSV files by MIME type (text/csv, application/vnd.ms-excel)", () => {
+      const mimeMeta = validateCsvFileMeta({
+        name: "uploaded_data",
+        size: 2048,
+        type: "text/csv",
+      });
+      expect(mimeMeta.valid).toBe(true);
+
+      const excelCsvMeta = validateCsvFileMeta({
+        name: "data",
+        size: 4096,
+        type: "application/vnd.ms-excel",
+      });
+      expect(excelCsvMeta.valid).toBe(true);
+    });
+
+    it("rejects non-CSV files (.pdf, .json, .txt without csv mime)", () => {
+      const pdfMeta = validateCsvFileMeta({
+        name: "exam.pdf",
+        size: 1024,
+        type: "application/pdf",
+      });
+      expect(pdfMeta.valid).toBe(false);
+      expect(pdfMeta.error).toBe("Only CSV files (.csv) are supported.");
+
+      const jsonMeta = validateCsvFileMeta({
+        name: "data.json",
+        size: 512,
+        type: "application/json",
+      });
+      expect(jsonMeta.valid).toBe(false);
+      expect(jsonMeta.error).toBe("Only CSV files (.csv) are supported.");
+    });
+
+    it("rejects files exceeding MAX_CSV_FILE_BYTES (512 KB limit)", () => {
+      const oversized = validateCsvFileMeta({
+        name: "large_batch.csv",
+        size: MAX_CSV_FILE_BYTES + 1024,
+      });
+      expect(oversized.valid).toBe(false);
+      expect(oversized.error).toContain("exceeds the maximum allowed limit of 512 KB");
+    });
+
+    it("accurately parses complex Tamil Unicode across vowels, consonants, and pulli", () => {
+      const tamilCsv = `id,en_stem,ta_stem,en_A,ta_A,en_B,ta_B,en_C,ta_C,en_D,ta_D,en_E,ta_E
+TA_01,"Solar power","சூரிய மின்னாற்றல் மற்றும் புதுப்பிக்கத்தக்க ஆற்றல்","Coal","நிலக்கரி","Wind","காற்றாலை","Gas","இயற்கை எரிவாயு","Hydro","நீர் மின்சாரம்","",""`;
+
+      const result = parseAndValidateCsv(tamilCsv);
+      expect(result.success).toBe(true);
+      expect(result.validItems).toHaveLength(1);
+      const item = result.validItems[0];
+      expect(item.ta.stem).toBe("சூரிய மின்னாற்றல் மற்றும் புதுப்பிக்கத்தக்க ஆற்றல்");
+      expect(item.ta.options[0].text).toBe("நிலக்கரி");
+      expect(item.ta.options[1].text).toBe("காற்றாலை");
+      expect(item.ta.options[2].text).toBe("இயற்கை எரிவாயு");
+      expect(item.ta.options[3].text).toBe("நீர் மின்சாரம்");
+    });
   });
 });

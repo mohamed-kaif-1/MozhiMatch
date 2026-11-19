@@ -10,7 +10,7 @@ The repository maintains two original synthetic test sets in `src/fixtures/`:
 
 1. **Development Set (`src/fixtures/development.json`)**:
    5 paired English–Tamil multiple choice items designed for local development and allowlisted practice in demo environments:
-   - `DEV_NEGATION`: Negation drop in Tamil stem (`NOT a fruit` vs `இவற்றில் பழம் எது?`). Expected: `meaning_changed`.
+   - `DEV_NEGATION`: Negation drop in Tamil stem (`NOT a renewable energy source` vs `இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?`). Expected: `meaning_changed`.
    - `DEV_VERB`: Direction of action flipped in stem (`received` vs `வழங்கப்பட்டது`). Expected: `meaning_changed`.
    - `DEV_CLEAN`: Parallel, semantically equivalent item serving as a clean control. Expected: `no_issue_found`.
    - `DEV_UNCERTAIN`: Ambiguous proper name transliteration (`K. Arumugam` vs `க. ஆறுமுகம்`). Expected: `needs_review`.

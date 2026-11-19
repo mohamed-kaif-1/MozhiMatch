@@ -5,6 +5,36 @@ import { APP_LIMITS } from "../contracts/config";
 
 export const MAX_CSV_FILE_BYTES = 512 * 1024; // 512 KB limit
 
+export interface CsvFileMeta {
+  name: string;
+  size: number;
+  type?: string;
+}
+
+/**
+ * Validates metadata for dropped or selected CSV files (extension, mime type, size).
+ */
+export function validateCsvFileMeta(file: CsvFileMeta): { valid: boolean; error?: string } {
+  const isCsvExtension = file.name.toLowerCase().endsWith(".csv");
+  const isCsvMime =
+    file.type === "text/csv" ||
+    file.type === "application/vnd.ms-excel" ||
+    file.type === "text/plain";
+
+  if (!isCsvExtension && !isCsvMime) {
+    return { valid: false, error: "Only CSV files (.csv) are supported." };
+  }
+
+  if (file.size > MAX_CSV_FILE_BYTES) {
+    return {
+      valid: false,
+      error: `File size (${Math.round(file.size / 1024)} KB) exceeds the maximum allowed limit of 512 KB.`,
+    };
+  }
+
+  return { valid: true };
+}
+
 export const EXPECTED_CSV_COLUMNS = [
   "id",
   "en_stem",

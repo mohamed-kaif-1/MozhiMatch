@@ -5,6 +5,7 @@ import {
   parseAndValidateCsv,
   generateCsvTemplate,
   generateSampleCsv,
+  validateCsvFileMeta,
   MAX_CSV_FILE_BYTES,
   CsvParseResult,
 } from "../../lib/core/csv-import";
@@ -40,6 +41,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [showConfirmReplace, setShowConfirmReplace] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragCounterRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleClose = useCallback(() => {
@@ -48,6 +51,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     setParseResult(null);
     setFileError(null);
     setShowConfirmReplace(false);
+    setIsDragging(false);
+    dragCounterRef.current = 0;
     onClose();
   }, [onClose]);
 
@@ -72,14 +77,15 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     setParseResult(result);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processFile = (file: File) => {
+    const metaCheck = validateCsvFileMeta({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    });
 
-    if (file.size > MAX_CSV_FILE_BYTES) {
-      setFileError(
-        `File size (${Math.round(file.size / 1024)} KB) exceeds the maximum allowed limit of 512 KB.`
-      );
+    if (!metaCheck.valid) {
+      setFileError(metaCheck.error || "Invalid file format or size limit exceeded.");
       setParseResult(null);
       return;
     }
@@ -94,6 +100,67 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       setParseResult(null);
     };
     reader.readAsText(file, "UTF-8");
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "copy";
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      setIsDragging(false);
+      dragCounterRef.current = 0;
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounterRef.current = 0;
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    if (files.length > 1) {
+      setFileError("Please upload or drop only one CSV file at a time.");
+      setParseResult(null);
+      return;
+    }
+
+    processFile(files[0]);
+  };
+
+  const handleDropzoneKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fileInputRef.current?.click();
+    }
   };
 
   const handleDownloadTemplate = () => {
@@ -178,12 +245,30 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
         {/* File Drop / Select Area */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Upload CSV file by dropping or browsing"
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-slate-300 hover:border-[#2154F4] rounded-[6px] p-6 text-center cursor-pointer hover:bg-blue-50/30 transition-all flex flex-col items-center justify-center gap-1.5"
+          onKeyDown={handleDropzoneKeyDown}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-[6px] p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#2154F4] focus:ring-offset-2 ${
+            isDragging
+              ? "border-[#2154F4] bg-[#EEF3FF] shadow-inner ring-2 ring-[#2154F4]/30 scale-[1.008]"
+              : "border-slate-300 hover:border-[#2154F4] hover:bg-blue-50/30"
+          }`}
         >
-          <Upload className="w-7 h-7 text-slate-400" />
+          <Upload
+            className={`w-7 h-7 transition-colors ${
+              isDragging ? "text-[#2154F4] animate-bounce" : "text-slate-400"
+            }`}
+          />
           <div className="text-sm font-bold text-slate-800">
-            {fileName ? (
+            {isDragging ? (
+              <span className="text-[#2154F4]">Drop your CSV file here to upload</span>
+            ) : fileName ? (
               <span className="font-mono text-[#2154F4]">{fileName}</span>
             ) : (
               "Click to browse or drop your CSV file here"
@@ -198,6 +283,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
             accept=".csv,text/csv"
             onChange={handleFileChange}
             className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           />
         </div>
 

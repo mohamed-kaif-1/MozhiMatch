@@ -10,7 +10,7 @@
 [![TypeScript 5](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node >=20](https://img.shields.io/badge/Node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Gemini API](https://img.shields.io/badge/Model-Gemini%203.5%20Flash--Lite-2154F4?style=flat-square&logo=google-gemini&logoColor=white)](https://ai.google.dev/)
-[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-Passed%20(62%2F62)-047857?style=flat-square)](final-audit/00-executive-verdict.md)
+[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-Passed%20(113%2F113)-047857?style=flat-square)](final-audit/00-executive-verdict.md)
 
 [Quick Start](#quick-start) • [Workflow](#workflow) • [Architecture](docs/ARCHITECTURE.md) • [Final Audit Report](final-audit/00-executive-verdict.md) • [Engineering Decisions](#engineering-decisions--trade-offs) • [Verification](#verification--evidence) • [Privacy](docs/PRIVACY.md)
 
@@ -22,7 +22,7 @@
 
 - **Live Public Demo**: [https://mozhimatch.vercel.app/](https://mozhimatch.vercel.app/) — Live production deployment on Vercel with serverless Gemini integration.
 - **Judge Quick Test (No Password Required)**: Judges can evaluate live Semantic AI Review and AI Correction Suggestions directly on built-in sample fixtures without entering any access code.
-- **Full Automation QA Gate**: 15/15 Vitest test files passing (99/99 tests) + 16/16 Playwright browser tests passing (100%) across 7 viewports.
+- **Full Automation QA Gate**: 15/15 Vitest test files passing (113/113 tests) + 16/16 Playwright browser tests passing (100%) across 7 viewports.
 
 ---
 
@@ -39,7 +39,7 @@ Reviewers retain final authority: every finding highlights the exact source exce
 ## Product in Action
 
 ![MozhiMatch Desktop Workbench](evaluation/desktop-verified.png)
-*Figure 1: MozhiMatch desktop workbench reviewing synthetic fixture `DEV_NEGATION`. The left column captures the English stem asking "Which of these is NOT a fruit?" and the Tamil stem omitting the negative particle ("இவற்றில் பழம் எது?"). The right column validates and highlights the exact Tamil question text, flags the missing negation, and presents Keep / Fix / Escalate actions.*
+*Figure 1: MozhiMatch desktop workbench reviewing synthetic fixture `DEV_NEGATION`. The left column captures the English stem asking "Which of these is NOT a renewable energy source?" and the Tamil stem omitting the negative particle ("இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?"). The right column validates and highlights the exact Tamil question text, flags the missing negation, and presents Keep / Fix / Escalate actions.*
 
 ---
 
@@ -49,9 +49,9 @@ In bilingual assessments, minor translation omissions create material discrepanc
 
 | Language Version | Question Text | Answer Key Implication |
 |---|---|---|
-| **English Original** | Which of these is **NOT** a fruit?<br>`A: Apple` &nbsp; `B: Banana` &nbsp; `C: Carrot` &nbsp; `D: Mango` | Exactly one correct answer (**C: Carrot**). |
-| **Flawed Tamil Translation** *(Synthetic Example: `DEV_NEGATION`)* | இவற்றில் பழம் எது? *(Which of these is a fruit?)*<br>`A: ஆப்பிள்` &nbsp; `B: வாழைப்பழம்` &nbsp; `C: கேரட்` &nbsp; `D: மாம்பழம்` | Three valid answers (**A, B, D**); question is broken. |
-| **Reviewer Triage Action** | **Fix / Escalate**: Restore missing negative particle (`அல்லாத`) in Tamil stem: *"இவற்றில் பழம் அல்லாதது எது?"* | Single correct answer restored across both language papers. |
+| **English Original** | Which of these is **NOT** a renewable energy source?<br>`A: Solar` &nbsp; `B: Wind` &nbsp; `C: Coal` &nbsp; `D: Hydropower` | Exactly one correct answer (**C: Coal**). |
+| **Flawed Tamil Translation** *(Synthetic Example: `DEV_NEGATION`)* | இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது? *(Which of these is a renewable energy source?)*<br>`A: சூரிய ஆற்றல்` &nbsp; `B: காற்று ஆற்றல்` &nbsp; `C: நிலக்கரி` &nbsp; `D: நீர்மின் ஆற்றல்` | Three valid answers (**A, B, D**); question is broken and ungradable. |
+| **Reviewer Triage Action** | **Fix / Escalate**: Restore missing negative particle (`அல்லாத`) in Tamil stem: *"இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் அல்லாதது எது?"* | Single correct answer restored across both language papers. |
 
 ---
 
@@ -224,7 +224,7 @@ MozhiMatch maintains clear separation between test suites, browser testing, and 
 
 | Check | Result | Location / Command | Scope & Notes |
 |---|---|---|---|
-| **Unit & Contract Tests** | **99 / 99 Passing** (15 suites) | `npm run test` | Validates CSV import/export, Zod contracts, structural rules, evidence quotes, exports, access guards, rate limiting, global budget, AI suggestions, and review state transitions. |
+| **Unit & Contract Tests** | **113 / 113 Passing** (15 suites) | `npm run test` | Validates CSV import/export, Zod contracts, structural rules, evidence quotes, exports, access guards, rate limiting, global budget, AI suggestions, and review state transitions. |
 | **Static Quality Gates** | **0 Errors, Clean Build** | `npx tsc --noEmit`<br>`npm run lint`<br>`npm run build` | TypeScript 5.9 strict typecheck (0 errors), ESLint 9 (0 errors/0 warnings), and Next.js 16 production Turbopack compilation. |
 | **Automated Chrome Browser QA** | **16 / 16 Passing (100%)** | `node scripts/run_production_qa.mjs` | Automated multi-viewport audit across 7 screen widths (320px–1920px), zero toolbar overlap, state synchronization, live AI review, suggest-apply-undo correction workflow, reviewer triage, rules checks, CSV export, and Tamil localization. |
 | **Live AI Benchmark** | **1.000 Precision, 0.923 F1** | `final-audit/02-semantic-benchmark.md` | 30 frozen benchmark cases. 0.000 False Negative Rate on bad questions. Resisted adversarial prompt injection attacks that compromised generic LLMs. |
@@ -290,7 +290,7 @@ MozhiMatch/
 │   ├── i18n/                  # Bilingual locale provider
 │   ├── lib/                   # AI client, contracts, rules, server guards, CSV engines
 │   └── messages/              # English (`en.json`) and Tamil (`ta.json`) translations
-├── tests/                     # Automated Vitest test suites (11 suites, 57 tests)
+├── tests/                     # Automated Vitest test suites (15 suites, 113 tests)
 ├── package.json               # Project manifest, scripts, and dependencies
 └── README.md                  # Project documentation & presentation
 ```

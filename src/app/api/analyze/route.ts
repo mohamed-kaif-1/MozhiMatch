@@ -101,26 +101,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(403, originCheck.errorCode, originCheck.messageKey, requestId);
   }
 
-  // 6. If AI mode requested: check consent, global budget, and AI access
+  // 6. If AI mode requested: check consent, AI access, and global budget
   if (mode === "ai") {
     if (!consent) {
       return errorResponse(422, "CONSENT_REQUIRED", "errors.consentRequired", requestId);
     }
 
-    // Global AI Request Budget check
-    const budgetCheck = await enforceGlobalAIBudget("analyze");
+    // Step 6a: AI access authorization check BEFORE budget consumption
+    // Unauthorized requests must never exhaust the judge demo allowance.
+    const aiAccessCheck = validateAnalyzeAIAccess(items, request.headers.get("x-demo-code"));
+    if (!aiAccessCheck.authorized && aiAccessCheck.errorCode && aiAccessCheck.messageKey) {
+      const status = aiAccessCheck.errorCode === "UNAUTHORIZED_DEMO" ? 401 : 403;
+      return errorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
+    }
+
+    // Step 6b: Shared quota requirement for anonymous public Gemini inference
+    const isAnonymousPublic =
+      process.env.DEPLOYMENT_MODE === "public_demo" && !aiAccessCheck.isOperator;
+
+    // Step 6c: Global AI Request Budget check
+    const budgetCheck = await enforceGlobalAIBudget("analyze", {
+      requireSharedQuota: isAnonymousPublic,
+    });
     if (!budgetCheck.allowed) {
       return errorResponse(429, "RATE_LIMITED", "errors.rateLimited", requestId, {
         "Retry-After": String(budgetCheck.retryAfterSeconds ?? 3600),
         "X-RateLimit-Limit": String(budgetCheck.limit),
         "X-RateLimit-Remaining": "0",
       });
-    }
-
-    const aiAccessCheck = validateAnalyzeAIAccess(items, request.headers.get("x-demo-code"));
-    if (!aiAccessCheck.authorized && aiAccessCheck.errorCode && aiAccessCheck.messageKey) {
-      const status = aiAccessCheck.errorCode === "UNAUTHORIZED_DEMO" ? 401 : 403;
-      return errorResponse(status, aiAccessCheck.errorCode, aiAccessCheck.messageKey, requestId);
     }
   }
 

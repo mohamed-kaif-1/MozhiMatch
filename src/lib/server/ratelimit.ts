@@ -8,11 +8,16 @@ export interface RateLimitResult {
   resetSeconds: number;
   retryAfterSeconds?: number;
   isBudgetExceeded?: boolean;
+  isSharedQuotaUnavailable?: boolean;
 }
 
 export interface RateLimitOptions {
   maxRequests: number;
   windowSeconds: number;
+}
+
+export interface CheckRateLimitOptions extends RateLimitOptions {
+  requireSharedQuota?: boolean;
 }
 
 interface WindowEntry {
@@ -24,6 +29,21 @@ const inMemoryStore = new Map<string, WindowEntry>();
 
 // Global budget in-memory counter
 const inMemoryBudgetStore = new Map<string, { count: number; expiresAt: number }>();
+
+// Atomic rate limit Lua script for Redis
+// Executes INCR, sets EXPIRE on first increment, and retrieves TTL atomically
+const LUA_RATE_LIMIT_SCRIPT = `
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+local ttl = redis.call('TTL', KEYS[1])
+if ttl < 0 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {current, ttl}
+`;
 
 export function resetRateLimitStore(): void {
   inMemoryStore.clear();
@@ -105,28 +125,31 @@ export function checkInMemoryRateLimit(
   };
 }
 
-async function checkUpstashAtomic(
+export async function checkUpstashAtomic(
   url: string,
   token: string,
   key: string,
   options: RateLimitOptions
 ): Promise<RateLimitResult | null> {
   try {
-    const pipelineUrl = `${url.replace(/\/$/, "")}/pipeline`;
-    // Atomic multi-command pipeline:
-    // 1. INCR key
-    // 2. EXPIRE key windowSeconds NX (atomically sets expiry only on first increment)
-    // 3. TTL key (returns remaining lifetime)
-    const res = await fetch(pipelineUrl, {
+    const rootUrl = url.replace(/\/pipeline\/?$/, "").replace(/\/$/, "");
+    // Genuine atomic Redis transaction via EVAL Lua script:
+    // 1. Atomically increments key
+    // 2. Sets EXPIRE only on first increment
+    // 3. Atomically checks TTL, re-arming expiration if missing
+    // 4. Returns {current, ttl} atomically without race conditions
+    const res = await fetch(rootUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify([
-        ["INCR", key],
-        ["EXPIRE", key, options.windowSeconds, "NX"],
-        ["TTL", key],
+        "EVAL",
+        LUA_RATE_LIMIT_SCRIPT,
+        1,
+        key,
+        String(options.windowSeconds),
       ]),
       signal: AbortSignal.timeout(2000),
     });
@@ -135,13 +158,22 @@ async function checkUpstashAtomic(
       return null;
     }
 
-    const data = (await res.json()) as Array<{ result?: unknown; error?: string }>;
-    if (!Array.isArray(data) || data.length < 3) {
+    const data = (await res.json()) as { result?: unknown; error?: string };
+    if (!data || typeof data !== "object" || data.error) {
       return null;
     }
 
-    const count = Number(data[0].result);
-    const ttlRaw = Number(data[2].result);
+    if (!Array.isArray(data.result) || data.result.length < 2) {
+      return null;
+    }
+
+    const count = Number(data.result[0]);
+    const ttlRaw = Number(data.result[1]);
+
+    if (!Number.isFinite(count) || !Number.isFinite(ttlRaw) || count < 1) {
+      return null;
+    }
+
     const resetSeconds = ttlRaw > 0 ? ttlRaw : options.windowSeconds;
 
     if (count > options.maxRequests) {
@@ -167,41 +199,55 @@ async function checkUpstashAtomic(
 
 export async function checkRateLimit(
   key: string,
-  options: RateLimitOptions
+  options: CheckRateLimitOptions
 ): Promise<RateLimitResult> {
-  // Check for Vercel KV / Upstash Redis REST credentials
+  const isSharedRequired = Boolean(
+    options.requireSharedQuota ||
+    process.env.REQUIRE_SHARED_QUOTA === "true"
+  );
+
   const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  if (redisUrl && redisToken) {
+  // Fail closed if shared quota is required but credentials are missing or empty
+  if (isSharedRequired && (!redisUrl || !redisToken || !redisUrl.trim() || !redisToken.trim())) {
+    return {
+      allowed: false,
+      limit: options.maxRequests,
+      remaining: 0,
+      resetSeconds: options.windowSeconds,
+      retryAfterSeconds: options.windowSeconds,
+      isSharedQuotaUnavailable: true,
+    };
+  }
+
+  if (redisUrl && redisToken && redisUrl.trim() && redisToken.trim()) {
     const remoteResult = await checkUpstashAtomic(redisUrl, redisToken, key, options);
     if (remoteResult) {
       return remoteResult;
     }
 
-    // Fail closed in public_demo if strict shared quota is required and Redis call fails
-    if (
-      process.env.DEPLOYMENT_MODE === "public_demo" &&
-      process.env.REQUIRE_SHARED_QUOTA === "true"
-    ) {
+    // Fail closed if shared quota is required and Redis call fails or returns error
+    if (isSharedRequired) {
       return {
         allowed: false,
         limit: options.maxRequests,
         remaining: 0,
-        resetSeconds: 60,
-        retryAfterSeconds: 60,
+        resetSeconds: options.windowSeconds,
+        retryAfterSeconds: options.windowSeconds,
+        isSharedQuotaUnavailable: true,
       };
     }
   }
 
-  // Fallback to in-memory sliding window
+  // Fallback to in-memory sliding window only when shared quota is not strictly required
   return checkInMemoryRateLimit(key, options);
 }
 
 export async function enforceRateLimit(
   request: Request,
   endpoint: "analyze" | "correction",
-  customOptions?: Partial<RateLimitOptions>
+  customOptions?: Partial<CheckRateLimitOptions>
 ): Promise<RateLimitResult> {
   const ip = getClientIp(request);
   const key = hashClientKey(ip, endpoint);
@@ -213,9 +259,10 @@ export async function enforceRateLimit(
 
   const defaultWindow = Number(process.env.RATE_LIMIT_WINDOW_SECONDS) || 60;
 
-  const options: RateLimitOptions = {
+  const options: CheckRateLimitOptions = {
     maxRequests: customOptions?.maxRequests ?? defaultMax,
     windowSeconds: customOptions?.windowSeconds ?? defaultWindow,
+    requireSharedQuota: customOptions?.requireSharedQuota,
   };
 
   return checkRateLimit(key, options);
@@ -223,19 +270,40 @@ export async function enforceRateLimit(
 
 export async function enforceGlobalAIBudget(
   endpoint: "analyze" | "correction",
-  customBudget?: number
+  options?: {
+    customBudget?: number;
+    requireSharedQuota?: boolean;
+  }
 ): Promise<RateLimitResult> {
   const budgetLimit =
-    customBudget ??
+    options?.customBudget ??
     (Number(process.env.GLOBAL_AI_MAX_REQUESTS) || 300);
 
   const todayKey = `mm_global_ai_budget:${new Date().toISOString().slice(0, 10)}`;
   const windowSeconds = 86400; // 24 hours
 
+  const isSharedRequired = Boolean(
+    options?.requireSharedQuota ||
+    process.env.REQUIRE_SHARED_QUOTA === "true"
+  );
+
   const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  if (redisUrl && redisToken) {
+  // Fail closed if shared quota is required but credentials are missing or empty
+  if (isSharedRequired && (!redisUrl || !redisToken || !redisUrl.trim() || !redisToken.trim())) {
+    return {
+      allowed: false,
+      limit: budgetLimit,
+      remaining: 0,
+      resetSeconds: windowSeconds,
+      retryAfterSeconds: windowSeconds,
+      isBudgetExceeded: true,
+      isSharedQuotaUnavailable: true,
+    };
+  }
+
+  if (redisUrl && redisToken && redisUrl.trim() && redisToken.trim()) {
     const remoteResult = await checkUpstashAtomic(redisUrl, redisToken, todayKey, {
       maxRequests: budgetLimit,
       windowSeconds,
@@ -247,10 +315,8 @@ export async function enforceGlobalAIBudget(
       return remoteResult;
     }
 
-    if (
-      process.env.DEPLOYMENT_MODE === "public_demo" &&
-      process.env.REQUIRE_SHARED_QUOTA === "true"
-    ) {
+    // Fail closed if shared quota is required and Redis call fails
+    if (isSharedRequired) {
       return {
         allowed: false,
         limit: budgetLimit,
@@ -258,11 +324,12 @@ export async function enforceGlobalAIBudget(
         resetSeconds: windowSeconds,
         retryAfterSeconds: windowSeconds,
         isBudgetExceeded: true,
+        isSharedQuotaUnavailable: true,
       };
     }
   }
 
-  // In-memory global budget fallback
+  // In-memory global budget fallback only when shared quota is not strictly required
   const now = Date.now();
   let entry = inMemoryBudgetStore.get(todayKey);
   if (!entry || entry.expiresAt < now) {
