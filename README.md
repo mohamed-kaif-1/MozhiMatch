@@ -1,221 +1,257 @@
-# MozhiMatch — Bilingual MCQ Preflight
+<div align="center">
 
-**Preflight review workbench for English–Tamil multiple-choice examination papers.**
+![MozhiMatch Banner](docs/assets/banner.svg)
 
-MozhiMatch is an editorial workbench designed for examination editors, translators, and academic boards who publish bilingual question papers. It verifies paired English and Tamil questions and options side-by-side, detects structural and semantic discrepancies, highlights exact character-level evidence in both source texts, and lets human reviewers record definitive **Keep**, **Fix**, or **Escalate** decisions.
+# MozhiMatch (மொழி மேட்ச்)
 
----
+**Review English–Tamil MCQs for meaning changes before publication.**
 
-## The Problem
+[![Next.js 16](https://img.shields.io/badge/Next.js-16.4.6-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript 5](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node >=24](https://img.shields.io/badge/Node-%3E%3D24-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Gemini 2.5](https://img.shields.io/badge/Model-Gemini%202.5%20Flash-2154F4?style=flat-square&logo=google-gemini&logoColor=white)](https://ai.google.dev/)
 
-In high-stakes bilingual examinations across Tamil Nadu and multilingual entrance bodies (e.g., state recruitment tests, civil service exams, university admissions), questions are presented simultaneously in English and Tamil. Because translation workflows operate under strict publication deadlines, semantic and structural defects regularly slip into live question papers:
+[Quick Start](#quick-start) • [Workflow](#workflow) • [Architecture](docs/ARCHITECTURE.md) • [Engineering Decisions](#engineering-decisions--trade-offs) • [Verification](#verification--evidence) • [Privacy](docs/PRIVACY.md)
 
-- **Dropped Negations:** An English question asking *"Which of the following is NOT a renewable resource?"* translated into Tamil as *"இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது?"* (*Which of these IS a renewable resource?*).
-- **Inverted Verb Direction:** An English stem stating *"School A received an award from Company B"* translated as *"பள்ளி A நிறுவனம் B-க்கு விருது வழங்கியது"* (*School A gave an award to Company B*).
-- **Mismatched Options:** English offers 4 options (A–D), while Tamil provides only 3 (A–C), or option letters are swapped.
-- **Numeric & Unit Errors:** Numbers mistranscribed (e.g., "2020" in English vs "2025" in Tamil) or units converted incorrectly (e.g., "m/s" vs "km/h").
-
-When these errors reach candidates, questions become mathematically unanswerable or legally contestable, resulting in post-exam disputes, cancellations, and re-examinations. Manual paper proofreading is tedious, yet full-document automated translation does not respect editorial authority or provide traceable, verifiable evidence.
+</div>
 
 ---
 
-## Concrete Example: Meaning Change Detection
+### Availability & Deployment Status
 
-### Input MCQ Pair
-
-| Field | English Version | Tamil Version | Literal Translation of Tamil |
-|---|---|---|---|
-| **Stem** | Which of these is **NOT** a renewable energy source? | இவற்றில் புதுப்பிக்கத்தக்க ஆற்றல் மூலம் எது? | *Which of these is a renewable energy source?* |
-| **Option A** | Solar | சூரிய ஆற்றல் | Solar energy |
-| **Option B** | Wind | காற்று ஆற்றல் | Wind energy |
-| **Option C** | Coal | நிலக்கரி | Coal |
-| **Option D** | Hydropower | நீர்மின் ஆற்றல் | Hydropower |
-
-### What MozhiMatch Flags
-
-- **Status:** `MEANING CHANGED` (`meaning_changed`)
-- **Reason Code:** `negation`
-- **Source Citations:**
-  - English exact quote: `"NOT a renewable energy source"`
-  - Tamil exact quote: `"புதுப்பிக்கத்தக்க ஆற்றல் மூலம்"`
-- **Explanation:** *"The English question asks which one is NOT a renewable energy source, whereas the Tamil question asks which one IS a renewable energy source, introducing a direct negation discrepancy."*
-- **Reviewer Action:** The reviewer clicks **Fix wording** on the stem, flags the missing Tamil negation (*"அல்லாத"*), and copies the formatted editorial issue list for the translation team.
+- **Live Public Demo**: *Pending cloud hosting.* Local production builds and browser smoke tests pass 100%. See [Deployment Guide](docs/DEPLOYMENT.md) for self-hosting.
+- **Demo Video**: *Recording pending.* Complete verified browser execution evidence is documented below.
 
 ---
 
-## Application Screenshots & Deployment Status
+## What is MozhiMatch?
 
-- **Deployment Status:** **Local Demo Verified**. Production build and live browser tests pass locally. Public cloud deployment is pending final domain and infrastructure provisioning.
-- **Local URL:** `http://localhost:3000` (via `npm run dev`)
+MozhiMatch is a quality preflight workbench for bilingual exam editors, translators, and educators who review paired multiple-choice questions (MCQs) in **English** and **Tamil**.
 
-### Desktop Workbench View
-Dual-column editor with dynamic character counts, queue management, and character-precise highlighted evidence side-by-side:
+During rapid translation, subtle shifts—such as an omitted negation, a flipped verb, or a numerical discrepancy—can alter the answer key or invalidate a question. MozhiMatch audits paired questions before publication, pairing fast deterministic structural checks with structured Google Gemini semantic comparison and strict verbatim quote validation.
+
+Reviewers retain final authority: every finding highlights the exact source excerpt and surfaces rapid **Keep**, **Fix**, or **Escalate** triage actions.
+
+---
+
+## Product in Action
 
 ![MozhiMatch Desktop Workbench](evaluation/desktop-verified.png)
+*Figure 1: MozhiMatch desktop workbench reviewing synthetic fixture `DEV_NEGATION`. The left column captures the English stem asking "Which of these is NOT a fruit?" and the Tamil stem omitting the negative particle ("இவற்றில் பழம் எது?"). The right column validates and highlights the exact Tamil question text, flags the missing negation, and presents Keep / Fix / Escalate actions.*
 
-### Mobile Viewport View (375px & 390px)
-Fully responsive single-column layout adhering strictly to a minimum 44px touch target specification with zero horizontal overflow:
+---
+
+## The Problem: Subtle Semantic Drift
+
+In bilingual assessments, minor translation omissions create material discrepancies between language cohorts:
+
+| Language Version | Question Text | Answer Key Implication |
+|---|---|---|
+| **English Original** | Which of these is **NOT** a fruit?<br>`A: Apple` &nbsp; `B: Banana` &nbsp; `C: Carrot` &nbsp; `D: Mango` | Exactly one correct answer (**C: Carrot**). |
+| **Flawed Tamil Translation** *(Synthetic Example: `DEV_NEGATION`)* | இவற்றில் பழம் எது? *(Which of these is a fruit?)*<br>`A: ஆப்பிள்` &nbsp; `B: வாழைப்பழம்` &nbsp; `C: கேரட்` &nbsp; `D: மாம்பழம்` | Three valid answers (**A, B, D**); question is broken. |
+| **Reviewer Triage Action** | **Fix / Escalate**: Restore missing negative particle (`அல்லாத`) in Tamil stem: *"இவற்றில் பழம் அல்லாதது எது?"* | Single correct answer restored across both language papers. |
+
+---
+
+## Workflow
+
+```
+[1. Enter Pair] ──> [2. Run Checks] ──> [3. Inspect Evidence] ──> [4. Record & Export]
+```
+
+1. **Enter Paired Questions**: Input English and Tamil question stems alongside labelled options (`A`–`D` or `E`).
+2. **Run Checks**: Execute instant structural rules or run semantic AI comparison with explicit reviewer consent.
+3. **Inspect Evidence**: Review flagged discrepancies alongside exact quoted substrings highlighted in the editor.
+4. **Record & Export**: Mark each finding as **Keep**, **Fix**, or **Escalate**, then copy a structured Markdown summary to the clipboard.
+
+### Operating Modes & Human Triage
+
+| Mode / Action | Scope & Execution | Guaranteed Safety Properties |
+|---|---|---|
+| **Rules Mode** | Instant local deterministic checks (option counts, label alignment, Tamil numerals `௦–௯`, numbers, and units). | Always returns `needs_review`. Never claims semantic equivalence without AI verification. |
+| **Semantic AI Mode** | Structured cloud comparison via Google Gemini (`gemini-2.5-flash`) requiring reviewer consent. | Strictly validates that every quoted excerpt exists verbatim in the source text before display. |
+| **Human Triage** | Reviewer assigns **Keep** (intended phrasing), **Fix** (editorial correction), or **Escalate** (panel review). | Automated checks surface candidate issues; the human reviewer decides editorial action. |
+
+---
+
+## System Engineering
+
+MozhiMatch is implemented as a single, stateless Next.js 16 application. State is held in browser memory, and server routes execute statelessly without a database.
+
+### System Architecture
+
+```mermaid
+flowchart TD
+  subgraph Client ["Browser Client (React 19)"]
+    UI["Workbench UI<br/>(Editor & Review Queue)"]
+    State["In-Memory State<br/>(Items, Revisions, Actions)"]
+  end
+
+  subgraph Server ["Next.js Server Runtime (Node >=24)"]
+    Route["POST /api/analyze"]
+    Access["Access Guard<br/>(Origin, Demo Code, Allowlist)"]
+    Rules["Structural Rules Engine<br/>(Counts, Labels, Numerals, Units)"]
+    Gemini["Gemini REST Client<br/>(JSON Schema Enforced)"]
+    Validator["Evidence Quote Validator<br/>(Exact Substring Verification)"]
+  end
+
+  UI <--> State
+  State -->|"POST JSON (<= 64KB)"| Route
+  Route --> Access
+  Access --> Rules
+  
+  Rules -->|"Option Count / Label Mismatch"| Blocked["Blocked: Set needs_review"]
+  Rules -->|"Structurally Compatible"| Gemini
+  
+  Gemini -->|"JSON Comparisons"| Validator
+  Validator -->|"Verified Quotes"| Result["Format AnalyzeResponse"]
+  Blocked --> Result
+  Result -->|"HTTP 200 JSON"| UI
+```
+
+### Result Classification Flow
+
+```mermaid
+flowchart TD
+  Start([Incoming Analysis Request]) --> ModeCheck{Requested Mode?}
+  
+  ModeCheck -->|"rules"| RunRulesOnly["Run Structural Rules"]
+  RunRulesOnly --> MarkRulesReview["Status: needs_review<br/>(Rules never claim equivalence)"]
+  
+  ModeCheck -->|"ai"| StructCheck{Structurally Compatible?}
+  StructCheck -->|"No (Count/Label Mismatch)"| BlockAI["Bypass AI: Set needs_review"]
+  
+  StructCheck -->|"Yes"| CallAI["Call Gemini API with Schema"]
+  CallAI --> ProviderCheck{Provider Status?}
+  
+  ProviderCheck -->|"Timeout / Error / Bad JSON"| FallbackRules["Fallback to rules_only<br/>Status: needs_review"]
+  ProviderCheck -->|"HTTP 200 Valid JSON"| ValidateQuotes{Quotes Exist in Source?}
+  
+  ValidateQuotes -->|"Missing / Altered Quote"| DropQuote["Invalidate Quote<br/>Status: needs_review"]
+  ValidateQuotes -->|"Verified Verbatim"| EvaluateMeaning{Meaning Equivalence?}
+  
+  EvaluateMeaning -->|"Material Difference"| StatusChanged["Status: meaning_changed"]
+  EvaluateMeaning -->|"Ambiguous / Transliteration"| StatusUncertain["Status: needs_review"]
+  EvaluateMeaning -->|"Equivalent & Rules Clear"| StatusClear["Status: no_issue_found"]
+```
+
+*For complete component boundaries and request sequence details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).*
+
+---
+
+## Engineering Decisions & Trade-Offs
+
+1. **Deterministic Rules Alongside Model Comparison**:
+   - *Design*: Regex token checks (counts, labels, Tamil numerals `௦–௯`, numbers, units) execute before the LLM. Only structural blockers (`OPTION_COUNT_MISMATCH`, `OPTION_LABEL_MISMATCH`, `DUPLICATE_OPTION_LABEL`) bypass AI.
+   - *Trade-off*: Token matching cannot detect semantic nuance, but it catches formatting defects in <5ms without API costs.
+2. **Exact Substring Evidence Validation**:
+   - *Design*: The API route validates that every quoted string in Gemini's response exists verbatim in the source text before returning highlights.
+   - *Trade-off*: Paraphrased quotes invalidate the comparison and trigger `needs_review`. *Note*: verifying a quote exists proves grounding, not that the model's interpretation of that quote is correct.
+3. **Fail-Safe "Needs Review" Fallback**:
+   - *Design*: Any model timeout, parse error, structural mismatch, or quote failure marks the item `needs_review`. Rules-only mode strictly returns `needs_review`.
+   - *Trade-off*: Reviewers inspect more items during provider degradation, but silent false clears are eliminated.
+
+---
+
+## Quick Start
+
+### Prerequisites
+- **Node.js**: `>=24.0.0`
+- **Package Manager**: `npm`
+- **Google Gemini API Key**: from [Google AI Studio](https://aistudio.google.com/)
+
+### 1. Clone & Install
+```powershell
+# PowerShell
+git clone https://github.com/mohamed-kaif-1/MozhiMatch.git
+cd MozhiMatch
+npm ci
+```
+*(macOS / Linux: run identical commands in `bash` / `zsh`)*
+
+### 2. Configure Environment
+```powershell
+# PowerShell
+Copy-Item .env.example .env.local
+
+# macOS / Linux: cp .env.example .env.local
+```
+
+Edit `.env.local`:
+```bash
+AI_MODE=gemini
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+DEPLOYMENT_MODE=local
+APP_ORIGIN=http://localhost:3000
+DEMO_ACCESS_CODE=
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+---
+
+## Environment Variables
+
+| Variable | Required | `.env.example` | Runtime Default | Purpose |
+|---|---|---|---|---|
+| `AI_MODE` | No | `off` | `"off"` | Set to `gemini` to enable live AI review; `off` restricts to rules-only mode. |
+| `GEMINI_API_KEY` | Yes (for AI) | *(empty)* | `undefined` | Google AI Studio API key used for Gemini REST calls. |
+| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | `"gemini-2.5-flash"` | Gemini model identifier for Google REST API requests. |
+| `DEPLOYMENT_MODE` | No | `public_demo` | `"local"` | In `public_demo` mode, restricts AI analysis strictly to allowlisted fixtures. |
+| `APP_ORIGIN` | No | `http://localhost:3000` | Same-origin | Validates request origin header on incoming POST requests. |
+| `DEMO_ACCESS_CODE` | No | *(empty)* | Open access | Secret passphrase verified via `crypto.timingSafeEqual` for hosted demos. |
+
+> [!IMPORTANT]
+> **Public Demo Restrictions:** When `DEPLOYMENT_MODE="public_demo"`, entering a valid `DEMO_ACCESS_CODE` verifies operator credentials but does **not** bypass the fixture allowlist. Custom entered items are rejected with `403 DEMO_INPUT_RESTRICTED` to prevent prompt injection or unmonitored API usage.
+
+---
+
+## Verification & Evidence
+
+MozhiMatch maintains clear separation between test suites, browser testing, and offline fixture utilities:
+
+| Check | Result | Location / Command | Scope & Notes |
+|---|---|---|---|
+| **Unit & Contract Tests** | **44 / 44 Passing** (9 suites) | `npm run test` | Validates Zod schemas, structural rules, evidence quotes, exports, access guards, and state transitions. |
+| **Static Quality Gates** | **0 Errors, Clean Build** | `npm run typecheck`<br>`npm run lint`<br>`npm run build` | TypeScript 5.9 strict typecheck, ESLint 9, and Next.js 16 production compilation. |
+| **Local Browser Tests** | **Verified (Desktop & Mobile)** | Chrome DevTools Protocol at `http://localhost:3000` | Tested pair editing, rules checks, live AI analysis with consent, Keep/Fix/Escalate actions, copy summary, and 375px/390px mobile viewports. |
+| **Live AI Provider Calls** | **Verified (`mode: live_ai`)** | Chrome Network Inspection | Confirmed HTTP 200 from Google Generative Language API, valid JSON schema compliance, and verbatim evidence matching. |
+| **Offline Fixture Runner** | **Informational Summary Utility** | `scripts/evaluate.ts`<br>`npm run eval:development` | Evaluates structural rules and formats summary CSVs. **Does not invoke live AI inference** and must not be cited as a model accuracy benchmark. |
+| **Public Cloud Deployment** | **Pending** | [Deployment Guide](docs/DEPLOYMENT.md) | Local production build is verified; public cloud hosting is pending deployment. |
+
+*Verified on branch `main` at commit `4733d7d`.*
+
+---
+
+## Mobile Viewport Audit
+
+<div align="center">
 
 ![MozhiMatch Mobile Viewport](evaluation/mobile-375-verified.png)
 
----
+*Figure 2: Verified 375px mobile viewport audit (`evaluation/mobile-375-verified.png`). Document width matches viewport width exactly (375px clientWidth / 375px scrollWidth, 0px overflow). All touch targets meet the 44px minimum touch target standard.*
 
-## Implemented Features vs. MVP Scope Limitations
-
-### Implemented Features
-- **Paired MCQ Editor:** Side-by-side editing of English and Tamil stems (up to 2,000 chars) and labelled options A–E (up to 400 chars).
-- **Tamil Typography & Formatting:** Built-in `@fontsource/noto-sans-tamil` font with 1.7 line height for optimal readability.
-- **Deterministic Structural Rules (Zero-Cost):** Instant offline checks for option count mismatches, duplicate labels, label order discrepancies, and numeric token differences (including Tamil numerals `௦`–`௯`).
-- **Grounded Semantic AI Review:** Server-side Google Gemini analysis (`gemini-3.5-flash-lite`) returning structured JSON evaluations.
-- **Exact Citation & Grapheme Protection:** Validates that AI quotes exist verbatim in source text using UTF-16 code unit offsets, ensuring combining vowel signs and virama marks are never split across token boundaries.
-- **Human Review Actions:** Reviewers record explicit **Keep**, **Fix**, or **Escalate** decisions on every stem and option finding.
-- **Plain-Text Issue Export:** Generates an editorial summary formatted for copy-paste into issue trackers or editorial logs.
-- **Bilingual Interface:** Instant interface language toggle between English and தமிழ் with persistent `localStorage` preference.
-
-### Explicit MVP Scope Limitations
-- **No PDF or OCR Upload:** Requires manual text input or copy-paste; document parsing is deliberately out of scope for the MVP.
-- **No Database or User Accounts:** Session state lives in the browser memory during review; no student data or private papers are permanently stored.
-- **No Question Generation or Auto-Translation:** The system reviews and preflights existing human-authored questions; it never generates replacement questions or replaces human editorial judgment.
+</div>
 
 ---
 
-## How It Works
+## Tech Stack
 
-MozhiMatch operates in a four-stage pipeline:
-
-1. **Stage 1 — Deterministic Structure Checks (Zero-Paid):**  
-   Runs locally on the server with zero external API calls. Verifies option count equality, option label sets (`A`–`E`), numeric values (converting Tamil digits `௦-௯` to ASCII `0-9`), and measurement units.
-2. **Stage 2 — Semantic AI Review (Cloud Gemini, Opt-In):**  
-   Requires explicit user consent before transmitting text. The server-only Gemini client calls the REST API with structured response schemas to compare meaning, negation, qualifiers, and answer position alignment.
-3. **Stage 3 — Quote Verification & Grapheme Boundary Protection:**  
-   The server independently verifies that every quoted snippet returned by Gemini exists verbatim in the raw input text. If quotes do not match or split Tamil grapheme clusters, the finding is safely marked `needs_review`.
-4. **Stage 4 — Human Review Decisions:**  
-   The reviewer marks each discrepancy as Keep, Fix, or Escalate, and exports an plain-text audit trail.
-
-### Safe Fallback Invariants
-- **Rules-Only Never Claims Semantic Equivalence:** In rules mode, when no structural differences are found, the system displays `NEEDS HUMAN REVIEW` with the notice: *"Structure checks found no issue. Semantic review is still required."* It never emits a false "No difference found" badge without semantic analysis.
-- **Fail-Safe AI Degradation:** If Gemini is unavailable, times out (25-second limit), returns malformed JSON, or fails quote verification, the question is marked `needs_review`—never silently marked clear.
-
----
-
-## Architecture
-
-The diagram below reflects the actual implementation across Next.js App Router, server-side modules, and external services:
-
-```mermaid
-flowchart TD
-    subgraph Client["Browser Client (React 19 / Next.js)"]
-        UI["Workbench UI\n(PairEditor & ReviewQueue)"]
-        State["Review State Reducer\n(review-state.ts)"]
-        EvidenceUI["Evidence Panel\n(Keep / Fix / Escalate)"]
-    end
-
-    subgraph Server["Next.js API Layer (Node.js Server-Only)"]
-        API["POST /api/analyze\n(Route Handler)"]
-        Access["Access & Consent Guard\n(access.ts)"]
-        Rules["Structural Rules Engine\n(rules.ts)"]
-        AIClient["Gemini REST Client\n(gemini.ts & prompt.ts)"]
-        Evidence["Quote & Grapheme Validator\n(evidence.ts)"]
-    end
-
-    subgraph External["External Cloud Provider"]
-        Gemini["Google Gemini API\n(gemini-3.5-flash-lite)"]
-    end
-
-    UI -->|"1. Submit Pair"| API
-    API -->|"2. Verify Consent & Origin"| Access
-    Access -->|"3. Run Deterministic Checks"| Rules
-    
-    Rules -->|"4a. If Rules Mode"| API
-    Rules -->|"4b. If AI Mode & Consented"| AIClient
-    
-    AIClient -->|"5. Structured JSON Prompt"| Gemini
-    Gemini -->|"6. Candidate Comparisons"| AIClient
-    
-    AIClient -->|"7. Verify Verbatim Quotes"| Evidence
-    Evidence -->|"8. Assemble Final Status"| API
-    
-    API -->|"9. Return Analyzed Item"| State
-    State -->|"10. Render Highlights & Decisions"| EvidenceUI
-```
-
----
-
-## Decision Logic
-
-This diagram illustrates how MozhiMatch determines the final item status:
-
-```mermaid
-flowchart TD
-    Start(["Input English & Tamil MCQ Pair"]) --> Struct["Structural Rules Check\n(Option counts, labels, numbers, units)"]
-    
-    Struct --> HasStructDiff{"Structural differences\nflagged?"}
-    
-    HasStructDiff -- Yes --> StatusReview["Status: NEEDS HUMAN REVIEW\n(Flags structural differences)"]
-    
-    HasStructDiff -- No --> CheckMode{"Processing\nMode?"}
-    
-    CheckMode -- "Rules Mode" --> RulesNotice["Status: NEEDS HUMAN REVIEW\nNotice: Semantic review still required\n(Never falsely reports 'No issue found')"]
-    
-    CheckMode -- "AI Mode" --> Consent{"User consented\nto cloud AI?"}
-    
-    Consent -- No --> ConsentErr["HTTP 400: Consent Required"]
-    
-    Consent -- Yes --> GeminiCall["Call Gemini REST API\n(Structured JSON Schema, 25s timeout)"]
-    
-    GeminiCall --> AIValidation{"Valid JSON &\nQuotes exist verbatim\nin source text?"}
-    
-    AIValidation -- "No / Timeout / Error" --> FallbackReview["Status: NEEDS HUMAN REVIEW\nFallback notice: AI output unverified"]
-    
-    AIValidation -- Yes --> EvaluateFindings{"Semantic relations\nin comparisons?"}
-    
-    EvaluateFindings -- "Any field 'different'" --> StatusDiff["Status: MEANING CHANGED\n(Displays exact quotation evidence)"]
-    EvaluateFindings -- "Any field 'uncertain'" --> StatusUncertain["Status: NEEDS HUMAN REVIEW\n(e.g., ambiguous transliteration)"]
-    EvaluateFindings -- "All fields 'equivalent'" --> StatusClean["Status: NO DIFFERENCE FOUND\n(Stem and options confirmed equivalent)"]
-```
-
----
-
-## Request & Analysis Sequence
-
-The following sequence diagram details an end-to-end Semantic AI Review request:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Reviewer as Examination Reviewer
-    participant UI as Browser Workbench
-    participant API as Server API (/api/analyze)
-    participant Rules as Rules Engine (rules.ts)
-    participant AI as Gemini Client (gemini.ts)
-    participant Cloud as Google Gemini API
-    participant Evid as Evidence Validator (evidence.ts)
-
-    Reviewer->>UI: Selects "Semantic AI Review", checks consent, clicks "Compare questions"
-    UI->>API: POST /api/analyze { items, mode: "ai", consent: true, locale: "en" }
-    
-    API->>API: Validate request schema (Zod) & check origin
-    API->>Rules: checkStructuralRules(item)
-    Rules-->>API: structuralFindings[]
-
-    alt Structural Discrepancy Found (e.g. Option count mismatch)
-        API-->>UI: Return HTTP 200 { status: "needs_review", structuralFindings }
-    else Clean Structure
-        API->>AI: callGeminiSemanticReview(items, locale)
-        AI->>Cloud: POST /v1beta/models/gemini-3.5-flash-lite:generateContent
-        Cloud-->>AI: HTTP 200 { comparisons with exact quoted text }
-        
-        AI->>Evid: validateItemComparisons(item, providerComparisons)
-        Note over Evid: Verifies exact UTF-16 offsets & protects Tamil combining characters
-        Evid-->>AI: validatedComparisons[]
-        
-        AI-->>API: Provider output with verified citations
-        API-->>UI: Return HTTP 200 { status: "meaning_changed" | "no_issue_found", comparisons }
-    end
-
-    UI->>Reviewer: Displays highlighted source evidence side-by-side
-    Reviewer->>UI: Marks "Fix wording" & copies issue report
-```
+| Layer | Technology | Version | Role |
+|---|---|---|---|
+| **Framework** | Next.js (App Router) | `16.4.6` | Full-stack React framework providing SSR, Turbopack, and server route handlers. |
+| **UI Runtime** | React & React DOM | `19.3.1` | Component-level state and form handling. |
+| **Styling** | Tailwind CSS & PostCSS | `4.3.5` | Neo-brutalist variables (`#FFFDF5` paper, `#171717` ink, `#2154F4` blue). |
+| **Typography** | Geist & Noto Sans Tamil | `5.3.0` | Bilingual typography with specialized Tamil line heights (`1.7`). |
+| **Validation** | Zod | `4.6.7` | Compile-time and runtime validation for API schemas and Gemini responses. |
+| **AI Integration** | Google Gemini REST API | Beta | Direct server-side REST integration with JSON schema enforcement. |
+| **Localization** | `next-intl` | `4.15.1` | Instant English and Tamil interface switching. |
+| **Testing** | Vitest & Playwright | `5.1.1` / `1.65.1` | Fast unit tests and browser automation. |
 
 ---
 
@@ -223,208 +259,67 @@ sequenceDiagram
 
 ```
 MozhiMatch/
+├── docs/                      # Technical documentation
+│   ├── assets/                # Presentation assets (banner.svg, banner.png)
+│   ├── ARCHITECTURE.md        # Architecture, sequence diagrams & failure modes
+│   ├── API_CONTRACTS.md       # API schemas & error codes
+│   ├── DEPLOYMENT.md          # Local & Vercel deployment guide
+│   ├── EVALUATION.md          # Evaluation framework & fixture runner clarifications
+│   ├── PRIVACY.md             # Privacy boundaries & data handling
+│   └── examples/              # Sample JSON request and response payloads
+├── evaluation/                # Verified screenshots & fixture CSVs
+│   ├── desktop-verified.png   # Desktop workbench verification screenshot
+│   ├── mobile-375-verified.png# 375px mobile audit screenshot
+│   └── mobile-390-verified.png# 390px mobile audit screenshot
+├── scripts/                   # Development utilities
+│   └── evaluate.ts            # Offline fixture runner (structural rules & CSVs)
 ├── src/
-│   ├── app/                 # Next.js App Router pages and API route handlers
-│   │   ├── api/analyze/     # Main preflight analysis endpoint (/api/analyze)
-│   │   ├── api/health/      # Health check endpoint (/api/health)
-│   │   ├── globals.css      # Neobrutalist design tokens and layout styling
-│   │   ├── layout.tsx       # Root HTML layout and font definitions
-│   │   └── page.tsx         # Main workbench entry view
-│   ├── components/          # React components
-│   │   ├── LocaleControl.tsx # English / தமிழ் language toggle
-│   │   └── workbench/       # Workbench, PairEditor, ReviewQueue, EvidencePanel
-│   ├── fixtures/            # Synthetic test and benchmark datasets
-│   │   ├── development.json # 5 development split items for interactive use
-│   │   ├── holdout-inputs.json # 10 held-out evaluation test items
-│   │   └── holdout-expected.json # Expected labels for holdout evaluation
-│   ├── i18n/                # Client-side internationalization provider
-│   ├── messages/            # Symmetric translations (en.json, ta.json)
-│   └── lib/                 # Core domain logic and server modules
-│       ├── ai/              # Server-only Gemini client and structured prompts
-│       ├── contracts/       # Zod schemas and TypeScript interfaces
-│       ├── core/            # Rules engine, evidence validator, and export formatter
-│       └── server/          # Origin validation and constant-time operator authentication
-├── tests/
-│   ├── api/                 # API route and workflow integration tests
-│   └── unit/                # Unit tests for rules, evidence, access, export, and contracts
-├── docs/                    # Technical documentation
-│   ├── ARCHITECTURE.md      # System architecture and data flow
-│   ├── API_CONTRACTS.md     # Endpoint contracts and payload specifications
-│   ├── PRIVACY.md           # Security, data minimization, and privacy model
-│   ├── EVALUATION.md        # Benchmark evaluation plan and methodology
-│   ├── DEPLOYMENT.md        # Vercel deployment runbook
-│   └── examples/            # Validated JSON request/response contract examples
-├── evaluation/              # Benchmark result logs and browser verification screenshots
-├── public/                  # Static assets (favicon.svg, robots.txt)
-└── scripts/
-    └── evaluate.ts          # Automated benchmark runner (development & holdout)
+│   ├── app/                   # Next.js App Router (workbench UI & API routes)
+│   ├── components/workbench/  # Workbench UI components
+│   ├── fixtures/              # Synthetic test fixtures (development & holdout)
+│   ├── i18n/                  # Bilingual locale provider
+│   ├── lib/                   # AI client, contracts, rules, and server guards
+│   └── messages/              # English (`en.json`) and Tamil (`ta.json`) translations
+├── tests/                     # Automated Vitest test suites (unit & API)
+├── package.json               # Project manifest, scripts, and dependencies
+└── README.md                  # Project documentation & presentation
 ```
 
 ---
 
-## Tech Stack
+## Implementation Boundaries & Limitations
 
-| Technology | Role | Reason for Choice |
-|---|---|---|
-| **Next.js 16 (App Router)** | Full-Stack Framework | Native server-only execution prevents API key exposure; fast Turbopack compilation. |
-| **React 19** | UI Library | Modern component rendering, state reducers, and seamless hydration. |
-| **TypeScript 5.9** | Language | Strict compile-time contracts across API requests, responses, and state reducers. |
-| **Tailwind CSS 4** | Styling | Utility-first CSS powering the high-contrast neobrutalist paper-and-ink aesthetic. |
-| **Google Gemini REST API** | Semantic Reasoning | Low-latency inference (`gemini-3.5-flash-lite`), structured JSON output, strong Tamil script handling. |
-| **Zod 4** | Schema Validation | Validates client inputs, server responses, and untrusted LLM outputs at runtime. |
-| **Vitest 5** | Test Framework | Fast native ESM and TypeScript unit testing with zero build overhead. |
-| **Noto Sans Tamil & Geist** | Web Typography | High-legibility Tamil rendering with appropriate line spacing (`1.7`) for vowel diacritics. |
+- **Manual Text Entry Only**: Accepts typed or pasted text. Does not include OCR, PDF parsing, or automated document ingestion.
+- **No Machine Translation**: Audits existing translations; does not generate translations or author questions.
+- **In-Memory State**: Workbench state exists solely in browser memory; refreshing clears data. No persistent database or user accounts.
+- **Model Disclaimers**: LLM comparisons are advisory recommendations. Quoted evidence ensures grounding, but human review (Keep/Fix/Escalate) is required.
+- **Evaluation Dataset**: Fixtures consist of 5 development items and 10 holdout items. Broad statistical benchmarks across thousands of items require future multi-center testing.
 
 ---
 
-## Local Setup & Installation
+## Data Privacy
 
-### Prerequisites
-- **Node.js:** `>= 24.0.0`
-- **npm:** `>= 10.0.0`
-- **Modern Browser:** Chrome, Edge, Firefox, or Safari
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/mohamed-kaif-1/MozhiMatch.git
-cd MozhiMatch
-```
-
-### 2. Install Dependencies
-```bash
-npm install
-```
-
-### 3. Configure Environment Variables
-Copy the example environment configuration:
-
-**Windows PowerShell:**
-```powershell
-Copy-Item .env.example .env.local
-```
-
-**macOS / Linux Bash:**
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` with your configuration. *(Note: The application runs fully in structural Rules Mode even without an API key).*
-
-### 4. Run the Development Server
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+- **Client-Side**: Question text and review decisions reside exclusively in browser memory. Only UI locale (`bmcq.locale`) persists in `localStorage`.
+- **Server-Side**: The Next.js backend does not store, log, or cache submitted question text or review decisions.
+- **Provider Boundary**: When Semantic AI mode is triggered with consent, text is transmitted over HTTPS to Google's Generative Language API under Google Cloud's data handling policies. Upcoming confidential exam drafts should not be submitted on public deployments. See [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ---
 
-## Environment Variables
+## Roadmap
 
-| Variable | Type | Default | Description |
-|---|---|---|---|
-| `AI_MODE` | `"on" \| "off"` | `"off"` | Enables or disables cloud AI calls. If `"off"`, runs deterministic rules only. |
-| `GEMINI_API_KEY` | `string` | `""` | Google Gemini API key. Server-only; never leaked to client bundles. |
-| `GEMINI_MODEL` | `string` | `"gemini-3.5-flash-lite"` | Candidate Gemini model identifier. |
-| `DEPLOYMENT_MODE` | `"local" \| "public_demo"` | `"local"` | In `"public_demo"`, live AI is restricted to server-owned allowlist fixtures unless a demo code is provided. |
-| `APP_ORIGIN` | `string` | `"http://localhost:3000"` | Allowed client origin for CSRF and request validation. |
-| `DEMO_ACCESS_CODE` | `string` | `""` | Optional secret operator code verified via `crypto.timingSafeEqual` to allow custom AI queries in public demo mode. |
+- [ ] **Batch CSV Import / Export**: Review an entire examination paper (50–100 MCQs) in a single session.
+- [ ] **Offline Local LLM Support**: Add adapter for local inference engines (Ollama / ONNX) for air-gapped exam boards.
+- [ ] **Multi-Reviewer Audit Trail**: Export structured JSON-LD reports with reviewer signatures and timestamped decisions.
 
 ---
 
-## Testing & Quality Assurance
+## Author & Acknowledgments
 
-All verification commands are executed against the actual codebase:
-
-```bash
-# 1. Run all unit and integration tests (Vitest)
-npm run test
-
-# 2. Run TypeScript typecheck (tsc)
-npm run typecheck
-
-# 3. Run ESLint (eslint)
-npm run lint
-
-# 4. Run production build (Next.js)
-npm run build
-
-# 5. Run development evaluation split benchmark
-npm run eval:development
-
-# 6. Run holdout evaluation split benchmark
-npm run eval:holdout
-```
-
-### Verified Test Results
-- **Automated Tests:** **9 test files, 44 tests passed** (100% pass rate in ~1.8 seconds).
-- **TypeScript:** `0` type errors across all strict modules.
-- **ESLint:** `0` lint errors and `0` warnings.
-- **Production Build:** Next.js static and dynamic route optimization succeeds with zero errors.
-- **Real Browser Testing (CDP):** Verified in Google Chrome at 1280px, 390px, and 375px viewports. **0 horizontal scroll** (`scrollWidth === clientWidth = 375px`), and all **28 / 28 interactive touch targets satisfy the ≥ 44px standard**.
-
-### Dataset & Evaluation Disclosures
-- **Synthetic Test Data:** Practice items in `src/fixtures/development.json` and `src/fixtures/holdout-inputs.json` are original synthetic authored questions to avoid distributing copyrighted examination material.
-- **Sample Size Limitation:** Benchmark evaluations are performed on small, carefully authored control sets (5 development items, 10 holdout items); performance on large-scale real-world examination papers will require broader domain-specific tuning.
-- **Live AI Verification:** Real live Gemini calls were executed and verified via Chrome DevTools network interception returning `mode: "live_ai"`, `providerStatus: "ok"`, and exact UTF-16 quotation spans.
+- **Lead Engineer & Maintainer**: Mohamed Kaif ([@mohamed-kaif-1](https://github.com/mohamed-kaif-1))
+- **Core Dependencies**: Next.js (Vercel), Google Gemini API, Tailwind CSS, Lucide Icons, Vitest.
 
 ---
 
-## Deployment Guide
+## License
 
-### Vercel Deployment (Recommended)
-1. Push the repository to GitHub.
-2. Import the repository in [Vercel](https://vercel.com).
-3. Set the following environment variables in the Vercel dashboard:
-   - `AI_MODE`: `"on"` (or `"off"` for zero-cost deployment)
-   - `GEMINI_API_KEY`: `<your_gemini_api_key>`
-   - `GEMINI_MODEL`: `"gemini-3.5-flash-lite"`
-   - `DEPLOYMENT_MODE`: `"public_demo"`
-   - `APP_ORIGIN`: `"https://your-domain.vercel.app"`
-   - `DEMO_ACCESS_CODE`: `<your_secret_operator_code>`
-4. Deploy. Vercel automatically compiles static routes and dynamic API endpoints.
-
-> [!NOTE]
-> In `public_demo` mode, arbitrary public web visitors can test the 5 built-in examination fixtures with live AI, preventing API quota exhaustion. Reviewers entering custom questions can unlock full live AI analysis by entering the private operator demo code.
-
----
-
-## Privacy & Security
-
-- **Data Minimization:** No database is attached to MozhiMatch. Questions, stems, and options reside strictly in volatile client memory and are discarded when the tab is closed or reset.
-- **Explicit Cloud Consent:** Question text is **never** sent to Google Gemini unless the user explicitly checks the consent box (*"I consent to sending question text to Gemini for semantic review"*).
-- **Server-Only Secrets:** `GEMINI_API_KEY` is loaded exclusively inside server-side route handlers protected by `import "server-only"`. It is never bundled into client-side JavaScript.
-- **Timing-Safe Authentication:** Operator demo codes are verified using constant-time string comparisons (`crypto.timingSafeEqual`) to protect against side-channel timing attacks.
-
----
-
-## 1-Minute Judge Walkthrough
-
-To review MozhiMatch in approximately 60 seconds:
-
-1. **Inspect UI:** Open [http://localhost:3000](http://localhost:3000). Notice the bilingual neobrutalist interface, paired question columns, and typography.
-2. **Load Fixture:** In the top toolbar, select `DEV_NEGATION (Negation dropped in Tamil)`.
-3. **Run Rules Mode:** Keep the default mode as *"Run structure checks (Zero-Paid)"* and click **Run structure checks**. Notice that the status reports `NEEDS HUMAN REVIEW` with an explicit notice that semantic review is required (it never claims a false clear).
-4. **Trigger Semantic AI:** Switch the mode toggle to **Semantic AI Review**, check the consent box, and click **Compare questions**.
-5. **Inspect Citations:** Within ~2 seconds, observe the badge change to `MEANING CHANGED`. In the right panel, observe the side-by-side exact yellow highlights on `"NOT a renewable energy source"` and `"புதுப்பிக்கத்தக்க ஆற்றல் மூலம்"`.
-6. **Record Human Decision:** Click **Fix wording** on the stem discrepancy.
-7. **Export Issue Report:** Click **Copy issue list**. Paste into any text editor to inspect the plain-text audit report.
-8. **Toggle Language:** Click **தமிழ்** in the top navigation bar to confirm instant bidirectional interface localization.
-
----
-
-## Known Limitations & Roadmap
-
-- **Manual Input Only:** Does not yet support bulk PDF question paper ingestion or OCR scanning.
-- **Small Evaluation Split:** Benchmark results are established on small synthetic control suites; large-scale validation across historical exam archives is planned.
-- **Roadmap:**
-  - [ ] Add direct CSV/JSON batch import for examination authoring teams.
-  - [ ] Support custom institutional glossary enforcement (e.g., standard scientific terminology mappings).
-  - [ ] Generate downloadable PDF preflight certification audit reports.
-
----
-
-## License & Acknowledgments
-
-- **Status:** Hackathon submission code repository.
-- **Typography:** Uses Google Fonts' [Noto Sans Tamil](https://fonts.google.com/specimen/Noto+Sans+Tamil) and Vercel's [Geist](https://vercel.com/font).
-- **Icons:** [Lucide Icons](https://lucide.dev/).
+Private hackathon submission repository. All rights reserved.

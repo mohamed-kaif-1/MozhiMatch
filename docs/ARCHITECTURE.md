@@ -1,22 +1,87 @@
-# System architecture
+# System Architecture
 
-DECIDED design uses a single deployable Next.js application. `src/app/page.tsx` renders a client workbench and locale shell. `src/app/api/analyze/route.ts` validates source and returns deterministic plus validated model comparisons. `src/app/api/health/route.ts` reports configuration mode without disclosing secrets. `src/lib/core` contains pure rules. `src/lib/ai` is server-only. Shared schemas and types belong to `src/lib/contracts`.
+MozhiMatch is implemented as a single, stateless Next.js 16 application with an editorial Neo-brutalist client workbench and a hardened server route handler. It pairs fast, deterministic structural rules with a structured Google Gemini semantic comparison and strict verbatim quote validation.
+
+---
+
+## Component Boundaries
+
+| Component | Path | Responsibility | Execution Environment |
+|---|---|---|---|
+| **Client Workbench** | `src/app/page.tsx`<br>`src/components/workbench/` | In-memory dual-column editor, revision tracking, optimistic status, review queue, touch-hardened triage actions (Keep / Fix / Escalate), and clipboard export. | Browser (React 19, Client Component) |
+| **Analysis Route Handler** | `src/app/api/analyze/route.ts` | Request limits, JSON validation, origin check, demo access control, fixture allowlist verification, rule execution, provider orchestration, and evidence verification. | Server-only Node runtime |
+| **Structural Rules Engine** | `src/lib/core/rules.ts` | Pure deterministic checks: option count parity, duplicate labels, label set match, Tamil numeral normalization (௦–௯ to 0–9), numeric tokens, and unit tokens. | Shared (Isomorphic) |
+| **Semantic AI Client** | `src/lib/ai/gemini.ts`<br>`src/lib/ai/prompt.ts` | Generates prompt with system constraints, invokes Google Generative Language REST API with strict JSON schema enforcement (`responseMimeType: "application/json"`). | Server-only Node runtime |
+| **Evidence Quote Validator** | `src/lib/core/evidence.ts` | Verifies that every English and Tamil excerpt quoted by the model exists verbatim as an exact substring in the source text. | Server-only Node runtime (orchestrated by route) |
+| **Access & Demo Guard** | `src/lib/server/access.ts` | Timing-safe demo access code validation (`crypto.timingSafeEqual`), origin verification, and fixture allowlist filtering in `public_demo` mode. | Server-only Node runtime |
+| **Health Route** | `src/app/api/health/route.ts` | Reports server deployment mode and AI availability status without disclosing secrets. | Server-only Node runtime |
+
+---
+
+## End-to-End Request Sequence Diagram
+
+The following sequence diagram details the full lifecycle of a review request across client, server route handler, access controls, structural rules, Gemini provider, and quote validator.
 
 ```mermaid
-flowchart TD
-  Editor["Paired item editor"] --> Client["Workbench state and locale"]
-  Client --> Route["Same-origin analyze route"]
-  Route --> Rules["Structural checks"]
-  Route --> Provider["Structured Gemini call"]
-  Provider --> Evidence["Schema and source evidence checks"]
-  Rules --> Review["Review queue and manual decision"]
-  Evidence --> Review
+sequenceDiagram
+  autonumber
+  actor Reviewer as Reviewer (Browser)
+  participant UI as Workbench UI
+  participant Route as POST /api/analyze
+  participant Guard as Access & Allowlist Guard
+  participant Rules as Structural Rules Engine
+  participant Gemini as Google Gemini REST API
+  participant Validator as Evidence Quote Validator
+
+  Reviewer->>UI: Enter paired English & Tamil MCQ
+  Reviewer->>UI: Select "Semantic AI Review" & check Consent
+  UI->>Route: POST /api/analyze { items, mode: "ai", consent: true }
+  
+  Note over Route: 1. Validate payload size (<= 64 KB)<br/>2. Validate Zod request schema
+  Route->>Guard: Check Origin, Demo Access Code & Allowlist
+  alt Invalid Origin or Bad Code
+    Guard-->>Route: 401 Unauthorized / 403 Forbidden
+    Route-->>UI: Error response with localization key
+  end
+
+  Route->>Rules: Run deterministic checks on all items
+  Rules-->>Route: Findings (Option counts, labels, numbers, units)
+
+  alt Item has blocking error (e.g. Option count mismatch)
+    Note over Route: Mark item needs_review directly.<br/>Do NOT send to Gemini.
+  else Item is structurally compatible
+    Route->>Gemini: POST /v1beta/models/{model}:generateContent
+    Note over Gemini: Evaluate meaning differences<br/>Enforce JSON response schema
+    Gemini-->>Route: JSON comparisons with quoted excerpts
+    
+    Route->>Validator: Validate quotes against exact source strings
+    alt Quoted text missing or altered in source
+      Validator-->>Route: Quote verification failed
+      Note over Route: Downgrade status to needs_review.<br/>Omit invalid comparison.
+    else Quotes verified verbatim
+      Validator-->>Route: Evidence verified valid
+      Note over Route: Assign status (meaning_changed / no_issue_found)
+    end
+  end
+
+  Route-->>UI: 200 OK AnalyzeResponse { mode, providerStatus, items }
+  UI->>Reviewer: Highlight verified source text & display findings
+  Reviewer->>UI: Mark Keep / Fix / Escalate & Copy Summary
 ```
 
-Browser state contains raw items, current revision, operation ID, analysis results and reviewer actions. There is no server content database. The route performs one provider call for compatible items in the request. It checks origin, body size, mode, consent, access code if hosted, sample allowlist, schema and structural compatibility before inference. Rules-only mode never calls the provider.
+---
 
-Provider success is not directly rendered. Parse JSON, validate its schema, enforce exactly the expected item IDs, and compare each corresponding field's evidence with original strings. Invalid comparison coverage invalidates semantic status for that item. A material rule issue always makes its item `needs_review`. Probabilistic findings never remove deterministic findings.
+## Gatekeeping and Failure Modes
 
-No application runtime agents are used. No server cache is needed for MVP. Every displayed provider-backed result represents that request's outcome. A separately labelled replay fixture can be used during an outage, with a permanent replay banner and no claim of live inference.
-
-The app is stateless between server requests. Locale is the sole localStorage entry. Current raw text, decisions and private demo access code remain in memory and clear on refresh/reset. Deployment hosting and provider infrastructure may retain service logs under their own policies. See PRIVACY_MODEL.md for the exact boundary.
+1. **Content-Type & Body Size**:
+   Requests must specify `application/json` and must not exceed `APP_LIMITS.MAX_REQUEST_BYTES` (64,000 bytes). Violations return `415 UNSUPPORTED_MEDIA_TYPE` or `413 BODY_TOO_LARGE`.
+2. **Structural Blocking**:
+   Only three structural conditions block AI inference:
+   - `OPTION_COUNT_MISMATCH` (e.g., 4 English options vs 3 Tamil options)
+   - `OPTION_LABEL_MISMATCH` (e.g., options labelled A, B, C, D in English vs A, B, C, E in Tamil)
+   - `DUPLICATE_OPTION_LABEL` (e.g., two option A's on either side)
+   Numeric and unit differences are surfaced as advisory structural findings but do **not** block semantic review.
+3. **Provider Failures**:
+   If Gemini times out (25-second server timeout) or returns invalid JSON, the route automatically falls back to `mode: "rules_only"` with provider status `unavailable` or `timeout`, setting item status to `needs_review`. The system **never** marks an item clear on provider failure.
+4. **Public Demo Restrictions**:
+   When `DEPLOYMENT_MODE="public_demo"`, `validateDemoAllowlist()` checks that submitted items exist in `src/fixtures/development.json`. Custom user-entered questions are rejected with `403 DEMO_INPUT_RESTRICTED`. Entering a valid operator `x-demo-code` verifies operator credentials but does **not** bypass the fixture allowlist in `public_demo` mode.
