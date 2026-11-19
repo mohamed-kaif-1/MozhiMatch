@@ -168,6 +168,148 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
         </div>
       )}
 
+      {/* Rules-Only / Pending Semantic Review Banner */}
+      {analysisItem.comparisons.length === 0 && (
+        <div className="paper-panel p-5 border-2 border-black bg-[#FFF0B3] text-[#654800] space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-[#654800]" />
+            <h4 className="font-bold text-sm">
+              {analysisItem.structuralFindings.length === 0
+                ? t("review.noFindings")
+                : t("status.needs_review")}
+            </h4>
+          </div>
+          <p className="text-xs leading-relaxed text-gray-800">
+            {analysisItem.structuralFindings.length === 0
+              ? t("review.noFindings")
+              : t("review.bounded")}
+          </p>
+        </div>
+      )}
+
+      {/* Manual Field Review Rows when no semantic comparisons exist */}
+      {analysisItem.comparisons.length === 0 && (
+        <div className="space-y-4">
+          <h4 className="text-sm font-bold uppercase tracking-wider text-gray-700">
+            Manual Review Fields
+          </h4>
+
+          {/* Stem row */}
+          <div className="paper-panel p-4 space-y-3 border-l-4 border-l-black">
+            <div className="flex items-center justify-between border-b pb-2">
+              <span className="font-bold text-sm bg-black text-white px-2 py-0.5">
+                Stem (Question)
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onSetDecision("stem", "keep")}
+                  className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                    decisions["stem"] === "keep"
+                      ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
+                      : "bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  {t("actions.keep")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetDecision("stem", "fix")}
+                  className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                    decisions["stem"] === "fix"
+                      ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
+                      : "bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  {t("actions.fix")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetDecision("stem", "escalate")}
+                  className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                    decisions["stem"] === "escalate"
+                      ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
+                      : "bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  {t("actions.escalate")}
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-[#FFFDF5] p-2.5 border">
+              <div>
+                <span className="font-bold text-gray-500 block">English:</span>
+                <p>{item.en.stem}</p>
+              </div>
+              <div>
+                <span className="font-bold text-gray-500 block font-tamil">தமிழ்:</span>
+                <p className="font-tamil">{item.ta.stem}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Option rows */}
+          {item.en.options.map((opt) => {
+            const fieldKey = `option:${opt.label}`;
+            const taOpt = item.ta.options.find((o) => o.label === opt.label);
+            return (
+              <div key={opt.label} className="paper-panel p-4 space-y-3 border-l-4 border-l-black">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="font-bold text-sm bg-black text-white px-2 py-0.5">
+                    Option {opt.label}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onSetDecision(fieldKey, "keep")}
+                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                        decisions[fieldKey] === "keep"
+                          ? "bg-[#D6F3DD] text-[#18552C] font-bold shadow-[2px_2px_0_#000]"
+                          : "bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      {t("actions.keep")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSetDecision(fieldKey, "fix")}
+                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                        decisions[fieldKey] === "fix"
+                          ? "bg-[#FFE0DB] text-[#8A241A] font-bold shadow-[2px_2px_0_#000]"
+                          : "bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      {t("actions.fix")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSetDecision(fieldKey, "escalate")}
+                      className={`text-xs px-2.5 py-1 border-2 border-black font-semibold ${
+                        decisions[fieldKey] === "escalate"
+                          ? "bg-[#FFF0B3] text-[#654800] font-bold shadow-[2px_2px_0_#000]"
+                          : "bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      {t("actions.escalate")}
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-[#FFFDF5] p-2.5 border">
+                  <div>
+                    <span className="font-bold text-gray-500 block">English:</span>
+                    <p>{opt.text}</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-gray-500 block font-tamil">தமிழ்:</span>
+                    <p className="font-tamil">{taOpt ? taOpt.text : "—"}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Semantic Comparisons List */}
       {analysisItem.comparisons.length > 0 && (
         <div className="space-y-4">
@@ -282,3 +424,4 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     </div>
   );
 };
+

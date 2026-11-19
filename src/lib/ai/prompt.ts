@@ -86,3 +86,4 @@ export const PROVIDER_RESPONSE_SCHEMA = {
   },
   required: ["results"],
 };
+

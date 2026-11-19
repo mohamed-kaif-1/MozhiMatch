@@ -62,6 +62,12 @@ Next is PROMPT_00 for inspection, followed by PROMPT_01 for environment and PROM
 - `scripts/evaluate.ts`: Automated evaluation runner executed on development split (`npm run eval:development`), outputting `evaluation/results-development.csv`.
 - Symmetric key parity verified between `en.json` and `ta.json`.
 
+### Milestone 9: Rules-Only Semantic Review Invariant & Regression Fix
+- Updated `src/app/api/analyze/route.ts` so rules-only mode items always return `status: "needs_review"` rather than falsely implying semantic equivalence (`no_issue_found`) when structural checks pass.
+- Updated `EvidencePanel.tsx` UI wording with `review.noFindings` so reviewers clearly see that structure checks found no issue and semantic review is still required.
+- Added regression tests in `tests/api/analyze.test.ts` verifying that rules-only clean items yield `needs_review`, while live-AI clean items with complete validated comparisons retain `no_issue_found`.
+- Verified: 44 automated tests pass, typecheck, lint, and production build pass.
+
 ---
 
 ## Current Status and Commands Run

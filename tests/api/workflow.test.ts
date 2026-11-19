@@ -244,3 +244,4 @@ describe("Feasibility Checkpoint: Core End-to-End Workflow", () => {
     expect(result.comparisons).toEqual([]);
   });
 });
+

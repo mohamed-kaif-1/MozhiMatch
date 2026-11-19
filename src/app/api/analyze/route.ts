@@ -110,13 +110,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 8. If mode is "rules", return rules-only analysis directly
+  // In rules-only mode, all items require semantic review even if structural checks pass cleanly
   if (mode === "rules") {
     const responseItems: AnalyzeResponseItem[] = items.map((item) => {
       const findings = itemFindingsMap.get(item.id) || [];
-      const hasIssues = findings.length > 0;
       return {
         id: item.id,
-        status: hasIssues ? "needs_review" : "no_issue_found",
+        status: "needs_review",
         structuralFindings: findings,
         comparisons: [],
       };
@@ -259,3 +259,4 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json(finalCheck.data, { status: 200 });
 }
+
