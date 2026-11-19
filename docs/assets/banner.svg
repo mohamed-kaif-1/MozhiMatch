@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" style="background:#FFFDF5;">
+  <defs>
+    <!-- 24px minimal grid pattern -->
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#171717" stroke-width="1" stroke-opacity="0.05" />
+    </pattern>
+    <filter id="shadow" x="0" y="0" width="200%" height="200%">
+      <feOffset result="offOut" in="SourceAlpha" dx="6" dy="6" />
+      <feColorMatrix result="matrixOut" in="offOut" type="matrix" values="0 0 0 0 0.09  0 0 0 0 0.09  0 0 0 0 0.09  1 0 0 0 0" />
+      <feBlend in="SourceGraphic" in2="matrixOut" mode="normal" />
+    </filter>
+  </defs>
+
+  <!-- Background Grid -->
+  <rect width="1200" height="360" fill="#FFFDF5" />
+  <rect width="1200" height="360" fill="url(#grid)" />
+
+  <!-- Outer Neo-brutalist Frame -->
+  <rect x="20" y="20" width="1160" height="320" fill="#FFFFFF" stroke="#171717" stroke-width="2" />
+  <!-- Drop shadow decorative block -->
+  <path d="M 1182 26 L 1182 342 L 26 342 L 26 340 L 1180 340 L 1180 26 Z" fill="#171717" />
+
+  <!-- Accent Top Bar -->
+  <rect x="20" y="20" width="1160" height="8" fill="#2154F4" />
+
+  <!-- Category Pill -->
+  <g transform="translate(60, 52)">
+    <rect x="0" y="0" width="280" height="28" fill="#FFE066" stroke="#171717" stroke-width="1.5" />
+    <text x="14" y="19" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" fill="#171717" letter-spacing="1.2">PRE-PUBLICATION QUALITY AUDIT</text>
+  </g>
+
+  <!-- Bilingual Pill -->
+  <g transform="translate(352, 52)">
+    <rect x="0" y="0" width="180" height="28" fill="#FFFDF5" stroke="#171717" stroke-width="1.5" />
+    <circle cx="16" cy="14" r="5" fill="#2154F4" />
+    <text x="28" y="19" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#171717">ENGLISH ⟷ தமிழ்</text>
+  </g>
+
+  <!-- Main Title & Logo Glyph -->
+  <g transform="translate(60, 155)">
+    <!-- Brand Icon -->
+    <rect x="0" y="-52" width="64" height="64" fill="#2154F4" stroke="#171717" stroke-width="2" />
+    <rect x="4" y="-48" width="56" height="56" fill="none" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="3 3" />
+    <text x="14" y="-12" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" fill="#FFFFFF">M</text>
+    <text x="36" y="-10" font-family="'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', sans-serif" font-size="24" font-weight="900" fill="#FFE066">ம</text>
+
+    <!-- Project Name -->
+    <text x="82" y="-10" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="46" font-weight="900" fill="#171717" letter-spacing="-0.5">MozhiMatch</text>
+    
+    <!-- Tamil Translation Sub-label -->
+    <text x="385" y="-14" font-family="'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', system-ui, sans-serif" font-size="24" font-weight="700" fill="#545454">(மொழி மேட்ச்)</text>
+  </g>
+
+  <!-- Tagline -->
+  <text x="60" y="202" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="500" fill="#171717">
+    Review English–Tamil MCQs for meaning changes before publication.
+  </text>
+
+  <!-- Horizontal divider line -->
+  <line x1="60" y1="230" x2="1140" y2="230" stroke="#171717" stroke-width="1.5" stroke-dasharray="4 4" />
+
+  <!-- Feature Pills / Highlights -->
+  <!-- Pill 1: Structural Rules -->
+  <g transform="translate(60, 255)">
+    <rect x="0" y="0" width="245" height="42" fill="#FFFDF5" stroke="#171717" stroke-width="1.5" />
+    <rect x="3" y="3" width="245" height="42" fill="#171717" style="mix-blend-mode: multiply;" />
+    <rect x="0" y="0" width="245" height="42" fill="#FFFDF5" stroke="#171717" stroke-width="1.5" />
+    <text x="14" y="26" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#171717">
+      ⚡ Structural Rules Engine
+    </text>
+  </g>
+
+  <!-- Pill 2: Gemini Grounded AI -->
+  <g transform="translate(325, 255)">
+    <rect x="0" y="0" width="255" height="42" fill="#FFFDF5" stroke="#171717" stroke-width="1.5" />
+    <text x="14" y="26" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#171717">
+      🔍 Grounded Gemini Analysis
+    </text>
+  </g>
+
+  <!-- Pill 3: Exact Evidence Highlights -->
+  <g transform="translate(600, 255)">
+    <rect x="0" y="0" width="250" height="42" fill="#FFFDF5" stroke="#171717" stroke-width="1.5" />
+    <text x="14" y="26" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#171717">
+      ✍️ Exact Quoted Highlights
+    </text>
+  </g>
+
+  <!-- Pill 4: Human Reviewer Control -->
+  <g transform="translate(870, 255)">
+    <rect x="0" y="0" width="270" height="42" fill="#FFF0B3" stroke="#171717" stroke-width="1.5" />
+    <text x="14" y="26" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#171717">
+      🛡️ Human Triage (Keep · Fix · Escalate)
+    </text>
+  </g>
+</svg>
