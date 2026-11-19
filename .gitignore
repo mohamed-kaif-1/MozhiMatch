@@ -13,7 +13,6 @@ dist/
 # Environment files
 .env*
 !.env.example
-!12_DEVELOPMENT_STANDARDS/starter/.env.example
 
 # Test & coverage output
 coverage/

@@ -1,0 +1,11 @@
+fixture_id,condition,status,structural_issues,notes
+"H01","rules","no_issue_found","none",""
+"H02","rules","no_issue_found","none",""
+"H03","rules","no_issue_found","none",""
+"H04","rules","no_issue_found","none",""
+"H05","rules","no_issue_found","none",""
+"H06","rules","no_issue_found","none",""
+"H07","rules","no_issue_found","none",""
+"H08","rules","no_issue_found","none",""
+"H09","rules","no_issue_found","none",""
+"H10","rules","needs_review","OPTION_COUNT_MISMATCH(4 vs 3)","OPTION_COUNT_MISMATCH(4 vs 3)"

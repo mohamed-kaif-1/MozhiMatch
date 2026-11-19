@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { formatReviewSummary } from "../../src/lib/core/export";
-import devFixtures from "../../10_TESTING/fixtures/development.json";
+import devFixtures from "../../src/fixtures/development.json";
 import { QuestionItem, AnalyzeResponse } from "../../src/lib/contracts/types";
 
 describe("Review Summary Formatter", () => {

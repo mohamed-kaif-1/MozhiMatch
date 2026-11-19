@@ -1,6 +1,6 @@
 # Evaluation plan
 
-Development fixtures are in 10_TESTING/fixtures/development.json. Holdout inputs and labels are separate files in that directory. Their English–Tamil texts are original synthetic authored items, so the hosted app can use development examples without redistributing exam pages. Known TNPSC defects remain linked source evidence and can be transcribed locally for the separate development proof after review.
+Development fixtures are in `src/fixtures/development.json`. Holdout inputs and labels (`holdout-inputs.json`, `holdout-expected.json`) are in `src/fixtures/`. Their English–Tamil texts are original synthetic authored items, so the hosted app can use development examples without redistributing exam pages.
 
 Benchmark conditions are rules-only, human side-by-side checklist, the strong generic same-model prompt, the app workflow and a direct translation QA service if Tamil is available. A missing competitor test must be marked NOT RUN, not assumed inferior. Use identical item text, allowed context and source markings. Never give the app labels or context absent from comparators.
 

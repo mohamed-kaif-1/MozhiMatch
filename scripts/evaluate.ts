@@ -68,7 +68,7 @@ async function main() {
 
   let fixturePath = path.resolve(__dirname, "../src/fixtures/development.json");
   if (split === "holdout") {
-    const holdoutPath = path.resolve(__dirname, "../10_TESTING/fixtures/holdout-inputs.json");
+    const holdoutPath = path.resolve(__dirname, "../src/fixtures/holdout-inputs.json");
     if (fs.existsSync(holdoutPath)) {
       fixturePath = holdoutPath;
     }

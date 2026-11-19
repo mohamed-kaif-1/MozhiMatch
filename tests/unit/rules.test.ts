@@ -5,7 +5,7 @@ import {
   normalizeTamilDigits,
   extractNumericTokens,
 } from "../../src/lib/core/rules";
-import devFixtures from "../../10_TESTING/fixtures/development.json";
+import devFixtures from "../../src/fixtures/development.json";
 import { QuestionItem } from "../../src/lib/contracts/types";
 
 describe("Structural Comparison Rules", () => {

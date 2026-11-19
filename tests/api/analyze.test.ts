@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { POST } from "../../src/app/api/analyze/route";
 import { GET } from "../../src/app/api/health/route";
 import { NextRequest } from "next/server";
-import requestExample from "../../03_BACKEND/examples/request.json";
-import devFixtures from "../../10_TESTING/fixtures/development.json";
+import requestExample from "../../docs/examples/request.json";
+import devFixtures from "../../src/fixtures/development.json";
 import { validateItemComparisons } from "../../src/lib/core/evidence";
 import { QuestionItem, ProviderResultItem } from "../../src/lib/contracts/types";
 

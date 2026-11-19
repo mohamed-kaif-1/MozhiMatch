@@ -103,6 +103,16 @@ MozhiMatch includes 5 synthetic practice items in `src/fixtures/development.json
 
 ---
 
+## Documentation
+
+- [Architecture & Data Flow](docs/ARCHITECTURE.md) — Technical stack, request lifecycle, and component structure.
+- [API Contracts](docs/API_CONTRACTS.md) — REST API endpoints (`/api/analyze`, `/api/health`) and payload schemas.
+- [Privacy & Security Model](docs/PRIVACY.md) — Data minimization, zero-paid defaults, and server-only credentials.
+- [Evaluation & Benchmarks](docs/EVALUATION.md) — Quality evaluation plan, rule checks, and synthetic benchmark splits.
+- [Deployment Runbook](docs/DEPLOYMENT.md) — Vercel deployment guide and environment configuration.
+
+---
+
 ## Deployment Instructions
 
 ### Vercel Deployment

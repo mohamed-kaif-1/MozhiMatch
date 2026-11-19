@@ -5,11 +5,11 @@ import {
   ErrorResponseSchema,
   QuestionItemSchema,
 } from "../../src/lib/contracts/schemas";
-import requestExample from "../../03_BACKEND/examples/request.json";
-import responseExample from "../../03_BACKEND/examples/response.json";
-import fallbackExample from "../../03_BACKEND/examples/fallback.json";
-import errorExample from "../../03_BACKEND/examples/error.json";
-import devFixtures from "../../10_TESTING/fixtures/development.json";
+import requestExample from "../../docs/examples/request.json";
+import responseExample from "../../docs/examples/response.json";
+import fallbackExample from "../../docs/examples/fallback.json";
+import errorExample from "../../docs/examples/error.json";
+import devFixtures from "../../src/fixtures/development.json";
 
 describe("Contracts and Schemas", () => {
   it("validates request.json example", () => {

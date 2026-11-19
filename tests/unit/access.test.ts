@@ -5,7 +5,7 @@ import {
   validateDemoCode,
   validateDemoAllowlist,
 } from "../../src/lib/server/access";
-import devFixtures from "../../10_TESTING/fixtures/development.json";
+import devFixtures from "../../src/fixtures/development.json";
 import { QuestionItem } from "../../src/lib/contracts/types";
 
 describe("Access and Security Controls", () => {

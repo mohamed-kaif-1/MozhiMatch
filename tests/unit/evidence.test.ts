@@ -4,7 +4,7 @@ import {
   validateItemComparisons,
 } from "../../src/lib/core/evidence";
 import { QuestionItem, ProviderResultItem } from "../../src/lib/contracts/types";
-import devFixtures from "../../10_TESTING/fixtures/development.json";
+import devFixtures from "../../src/fixtures/development.json";
 
 describe("Evidence and Citation Validator", () => {
   it("validates exact unique quote and derives UTF-16 start and end indices", () => {
